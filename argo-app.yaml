@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ai-sandbox
+spec:
+  destination:
+    name: in-cluster
+    namespace: sandbox
+    server: https://kubernetes.default.svc
+  source:
+    path: config
+    repoURL: https://github.com/glroland/ai-sandbox.git
+    targetRevision: HEAD
+    directory:
+      recurse: true
+  sources: []
+  project: default
