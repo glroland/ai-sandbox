@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gorch-regex-gateway-image-config
+data:
+  regexDetectorImage: 'quay.io/repository/trustyai/regex-detector@sha256:efab6cd8b637b9c35d311aaf639dfedee7d28de3ee07b412ab473deadecd3606'            
+  GatewayImage: 'quay.io/repository/trustyai/vllm-orchestrator-gateway@sha256:c511b386d61a728acdfe8a1ac7a16b3774d072dd053718e5b9c5fab0f025ac3b' 

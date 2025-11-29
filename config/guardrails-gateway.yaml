@@ -1,0 +1,35 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: guardrails-gateway
+  labels:
+    app: fmstack-nlp
+data:
+  config.yaml: |
+    orchestrator:   
+      host: "localhost"
+      port: 8032
+    detectors:      
+      - name: regex_language
+        input: true 
+        output: true
+        detector_params:
+          regex:
+            - email
+            - us-social-security-number
+            - credit-card
+            - ipv4
+            - ipv6
+            - us-phone-number
+            - uk-post-code
+            #- $CUSTOM_REGEX
+      #- name: hap
+      #  detector_params: {}
+    routes:         
+      - name: all
+        detectors:
+          - regex_language
+          #- hap
+      - name: passthrough
+        detectors:
+          - regex_language

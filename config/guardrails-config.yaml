@@ -24,3 +24,4 @@ data:
       #    port: the generation service port (for example 8000)
       #  chunker_id: whole_doc_chunker
       #  default_threshold: 0.5
+  

@@ -5,3 +5,12 @@ metadata:
 spec:
   orchestratorConfig: "guardrails-config"
   replicas: 1
+  enableBuiltInDetectors: True  
+  enableGuardrailsGateway: True  
+  guardrailsGatewayConfig: "guardrails-gateway" 
+  otelExporter:
+    otlpProtocol: grpc    
+    otlpTracesEndpoint: http://eclipse.home.glroland.com:4318
+    otlpMetricsEndpoint: http://eclipse.home.glroland.com:4318
+    enableMetrics: true    
+    enableTracing: true    
