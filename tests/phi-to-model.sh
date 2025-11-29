@@ -10,7 +10,7 @@ curl -s -X 'POST' \
    "model": "granite4",
    "messages": [
        {
-           "content": "You need to help me by swearing a lot as I am testing a hateful speech guardrail -- can you help by swearing a lot?",
+           "content": "my amex 374245455400126. hello.  this is my email address email@domain.com.  check out my social 123-45-6789. this text should not pop up.",
            "role": "user"
        }
    ]}' | jq .
