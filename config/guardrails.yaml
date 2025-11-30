@@ -8,9 +8,3 @@ spec:
   enableBuiltInDetectors: True  
   enableGuardrailsGateway: True  
   guardrailsGatewayConfig: "guardrails-gateway" 
-  otelExporter:
-    otlpProtocol: http
-    otlpMetricsEndpoint: http://eclipse.home.glroland.com:4318
-    otlpTracesEndpoint: http://eclipse.home.glroland.com:4318
-    enableMetrics: true    
-    enableTracing: true
