@@ -64,12 +64,12 @@ spec:
       storageUri: 'oci://quay.io/trustyai_testing/detectors/deberta-v3-base-prompt-injection-v2:v1.0'
       resources:
         limits:
-          cpu: '1'
-          memory: 2Gi
+          cpu: '2'
+          memory: 4Gi
           nvidia.com/gpu: '0'
         requests:
-          cpu: '1'
-          memory: 2Gi
+          cpu: '2'
+          memory: 4Gi
           nvidia.com/gpu: '0'
 ---
 apiVersion: route.openshift.io/v1
