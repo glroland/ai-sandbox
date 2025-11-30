@@ -61,7 +61,7 @@ spec:
         name: guardrails-detector-hf-runtime
       name: ''
       runtime: guardrails-detector-runtime-prompt-injection
-      storageUri: 'oci://quay.io/trustyai_testing/detectors/deberta-v3-base-prompt-injection-v2@sha256:8737d6c7c09edf4c16dc87426624fd8ed7d118a12527a36b670be60f089da215'
+      storageUri: 'oci://quay.io/trustyai_testing/detectors/deberta-v3-base-prompt-injection-v2:v1.0'
       resources:
         limits:
           cpu: '1'
