@@ -28,7 +28,7 @@ data:
             - uk-post-code
             - $CUSTOM_REGEX
 
-    routes:          4 
+    routes:
       - name: all
         detectors:
           - regex_language
