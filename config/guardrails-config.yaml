@@ -4,7 +4,7 @@ metadata:
   name: guardrails-config
 data:
   config.yaml: |
-    chat_generation: 
+    openai: 
       service:
         hostname: granite4-predictor.sandbox.svc.cluster.local
         port: 8080
@@ -15,7 +15,7 @@ data:
         service:
             hostname: "127.0.0.1"
             port: 8080
-        #chunker_id: whole_doc_chunker
+        chunker_id: whole_doc_chunker
         #default_threshold: 0.5
         detector_params:
           regex:
