@@ -1,9 +1,10 @@
 #!/bin/bash
 
 export MODEL_URL=$(oc get routes guardrails-gateway -o jsonpath='{.spec.host}' -n sandbox)
+export DETECTOR=/all
 
 curl -s -X 'POST' \
- "https://$MODEL_URL/v1/chat/completions" \
+ "https://$MODEL_URL$DETECTOR/v1/chat/completions" \
  -H 'accept: application/json' \
  -H 'Content-Type: application/json' \
  -d '{
@@ -18,7 +19,7 @@ curl -s -X 'POST' \
 
 
 curl -s -X 'POST' \
- "https://$MODEL_URL/api/v1/chat/completions" \
+ "https://$MODEL_URL$DETECTOR/v1/chat/completions" \
  -H 'accept: application/json' \
  -H 'Content-Type: application/json' \
  -d '{
