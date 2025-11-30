@@ -9,7 +9,7 @@ spec:
   enableGuardrailsGateway: True  
   guardrailsGatewayConfig: "guardrails-gateway" 
   otelExporter:
-    otlpProtocol: grpc
+    otlpProtocol: http
     otlpMetricsEndpoint: http://eclipse.home.glroland.com:4318
     otlpTracesEndpoint: http://eclipse.home.glroland.com:4318
     enableMetrics: true    
