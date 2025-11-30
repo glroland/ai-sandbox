@@ -33,9 +33,13 @@ data:
             #- yaml-with-schema:$SCHEMA    # registered file type pattern for detecting whether the text content satisfies a provided XML schema. To specify a schema, replace $SCHEMA with a JSON schema (not a YAML schema)
 
       - name: hap
+        input: true 
+        output: true
         detector_params: {}
 
       - name: prompt_injection
+        input: true 
+        output: true
         detector_params: {}
 
     routes:         
