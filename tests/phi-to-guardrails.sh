@@ -9,7 +9,7 @@ curl -s -X 'POST' \
   -d '{
     "content": "my amex 374245455400126",
     "detectors": {
-        "regex_language": {"regex": ["ssn","email","credit-card","^hello$"]}
+        "regex_language": {"regex": ["us-social-security-number","email","credit-card","^hello$"]}
     }
   }' | jq
 
@@ -20,7 +20,7 @@ curl -s -X 'POST' \
   -d '{
     "content": "hello", 
     "detectors": {
-        "regex_language": {"regex": ["ssn","email","credit-card","^hello$"]}
+        "regex_language": {"regex": ["us-social-security-number","email","credit-card","^hello$"]}
     }
   }' | jq
 
@@ -32,7 +32,7 @@ curl -s -X 'POST' \
   -d '{
     "content": "this is my email address email@domain.com", 
     "detectors": {
-        "regex_language": {"regex": ["ssn","email","credit-card","^hello$"]}
+        "regex_language": {"regex": ["us-social-security-number","email","credit-card","^hello$"]}
     }
   }' | jq
 
@@ -42,11 +42,12 @@ curl -s -X 'POST' \
  -H 'accept: application/json' \
  -H 'Content-Type: application/json' \
   -d '{
-    "content": "check out my social 123-45-6789", 
+    "content": "check out my social 987-65-4321", 
     "detectors": {
-        "regex_language": {"regex": ["ssn","email","credit-card","^hello$"]}
+        "regex_language": {"regex": ["us-social-security-number","email","credit-card","^hello$"]}
     }
   }' | jq
+
 
 curl -s -X 'POST' \
  "https://$GUARDRAILS_URL/api/v2/text/detection/content" \
@@ -55,6 +56,6 @@ curl -s -X 'POST' \
   -d '{
     "content": "this text should not pop up", 
     "detectors": {
-        "regex_language": {"regex": ["ssn","email","credit-card","^hello$"]}
+        "regex_language": {"regex": ["us-social-security-number","email","credit-card","^hello$"]}
     }
   }' | jq
