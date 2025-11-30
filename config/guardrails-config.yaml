@@ -15,8 +15,18 @@ data:
         service:
             hostname: "127.0.0.1"
             port: 8080
-        chunker_id: whole_doc_chunker
-        default_threshold: 0.5
+        #chunker_id: whole_doc_chunker
+        #default_threshold: 0.5
+        detector_params:
+          regex:
+            - email
+            - us-social-security-number
+            - credit-card
+            - ipv4
+            - ipv6
+            - us-phone-number
+            - uk-post-code
+            - $CUSTOM_REGEX
 
       #hap:
       #  type: text_contents
