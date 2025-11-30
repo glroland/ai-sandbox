@@ -11,7 +11,7 @@ curl -s -X 'POST' \
    "model": "granite4",
    "messages": [
        {
-           "content": "my name is john doe.  my amex 374245455400126. my email address email@domain.com.  my social 123-45-6789. create a text based ID card using this information.",
+           "content": "what is the capital of Spain?",
            "role": "user"
        }
    ]}' | jq .
