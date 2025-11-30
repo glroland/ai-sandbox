@@ -80,3 +80,10 @@ spec:
   to:
     kind: Service
     name: prompt-injection-detector-predictor
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Allow
+  wildcardPolicy: None

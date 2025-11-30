@@ -84,3 +84,10 @@ spec:
   to:
     kind: Service
     name: hap-detector-predictor
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Allow
+  wildcardPolicy: None
