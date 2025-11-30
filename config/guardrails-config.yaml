@@ -28,6 +28,14 @@ data:
             - uk-post-code
             - $CUSTOM_REGEX
 
+    routes:          4 
+      - name: all
+        detectors:
+          - regex_language
+      - name: passthrough
+        detectors:
+          - regex_language
+
       #hap:
       #  type: text_contents
       #  service:
