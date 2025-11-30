@@ -16,7 +16,7 @@ data:
             hostname: "127.0.0.1"
             port: 8080
         chunker_id: whole_doc_chunker
-        #default_threshold: 0.5
+        default_threshold: 0.5
         detector_params:
           regex:
             - email
