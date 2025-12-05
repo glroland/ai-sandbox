@@ -6,7 +6,8 @@ data:
   config.yaml: |
     openai: 
       service:
-        hostname: granite4-predictor.sandbox.svc.cluster.local
+        #hostname: granite4-predictor.sandbox.svc.cluster.local
+        hostname: gpt-oss-20b-predictor.sandbox.svc.cluster.local
         port: 8080
 
     detectors:
