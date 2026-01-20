@@ -1,0 +1,149 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  annotations:
+    opendatahub.io/accelerator-name: ''
+    opendatahub.io/apiProtocol: REST
+    opendatahub.io/recommended-accelerators: '["nvidia.com/gpu"]'
+    opendatahub.io/runtime-version: v0.10.1.1
+    opendatahub.io/serving-runtime-scope: global
+    opendatahub.io/template-display-name: vLLM NVIDIA GPU ServingRuntime for KServe
+    opendatahub.io/template-name: vllm-cuda-runtime
+    openshift.io/display-name: tinyllama
+  name: tinyllama
+  namespace: sandbox
+  labels:
+    opendatahub.io/dashboard: 'true'
+spec:
+  annotations:
+    prometheus.io/path: /metrics
+    prometheus.io/port: '8080'
+  containers:
+    - args:
+        - '--port=8080'
+        - '--model=/mnt/models'
+        - '--served-model-name={{.Name}}'
+      command:
+        - python
+        - '-m'
+        - vllm.entrypoints.openai.api_server
+      env:
+        - name: HF_HOME
+          value: /tmp/hf_home
+      image: 'registry.redhat.io/rhoai/odh-vllm-cuda-rhel9@sha256:fb84fbf103bf450ef5b060fc5f21a9cf16b166dba207a3c50aa91bccd919d604'
+      name: kserve-container
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      volumeMounts:
+        - mountPath: /dev/shm
+          name: shm
+  multiModel: false
+  supportedModelFormats:
+    - autoSelect: true
+      name: vLLM
+  volumes:
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 2Gi
+      name: shm
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    opendatahub.io/hardware-profile-name: nvidia-geforce-rtx-4090
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    openshift.io/display-name: tinyllama
+    security.opendatahub.io/enable-auth: 'true'
+    serving.kserve.io/deploymentMode: RawDeployment
+  name: tinyllama
+  namespace: sandbox
+  labels:
+    networking.kserve.io/visibility: exposed
+    opendatahub.io/dashboard: 'true'
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      modelFormat:
+        name: vLLM
+      name: ''
+      resources:
+        limits:
+          cpu: '2'
+          memory: 4Gi
+          nvidia.com/gpu: '1'
+        requests:
+          cpu: '2'
+          memory: 4Gi
+          nvidia.com/gpu: '1'
+      runtime: tinyllama
+      storage:
+        key: s3-models
+        path: tinyllama/tinyllama
+    nodeSelector:
+      nvidia.com/gpu.product: NVIDIA-GeForce-RTX-4090
+---
+kind: Secret
+apiVersion: v1
+metadata:
+  name: s3-models
+  namespace: sandbox
+  labels:
+    opendatahub.io/dashboard: 'true'
+    opendatahub.io/managed: 'true'
+  annotations:
+    opendatahub.io/connection-type: s3
+    opendatahub.io/connection-type-ref: s3
+    openshift.io/description: ''
+    openshift.io/display-name: s3-models
+stringData:
+  AWS_ACCESS_KEY_ID: minioadmin
+  AWS_DEFAULT_REGION: lab
+  AWS_S3_BUCKET: models
+  AWS_S3_ENDPOINT: https://eclipse.home.glroland.com:9000
+  AWS_SECRET_ACCESS_KEY: minioadmin
+  S3_VERIFY_SSL: "false"
+type: Opaque
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: tinyllama-view-role
+  namespace: sandbox
+  labels:
+    opendatahub.io/dashboard: 'true'
+rules:
+  - verbs:
+      - get
+    apiGroups:
+      - serving.kserve.io
+    resources:
+      - inferenceservices
+    resourceNames:
+      - tinyllama
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: grant-tinyllama-to-admin
+  namespace: sandbox
+subjects:
+  - kind: User
+    apiGroup: rbac.authorization.k8s.io
+    name: admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tinyllama-view-role
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: s3-models-sa
+  namespace: sandbox
+secrets:
+  - name: s3-models

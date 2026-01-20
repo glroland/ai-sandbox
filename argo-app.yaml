@@ -8,7 +8,7 @@ spec:
     namespace: sandbox
     server: https://kubernetes.default.svc
   source:
-    path: config
+    path: guardrails/config
     repoURL: https://github.com/glroland/ai-sandbox.git
     targetRevision: HEAD
     directory:
