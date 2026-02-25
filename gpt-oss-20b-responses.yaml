@@ -47,3 +47,21 @@ spec:
       name: 'rh-dev'
     storage:
       size: 50Gi
+
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: gpt-oss-20b-responses
+  namespace: sandbox
+spec:
+  to:
+    kind: Service
+    name: gpt-oss-20b-responses-service
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
