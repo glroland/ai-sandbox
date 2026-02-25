@@ -8,7 +8,7 @@ curl -s -X 'POST' \
  -H 'accept: application/json' \
  -H 'Content-Type: application/json' \
  -d '{
-   "model": "granite4",
+   "model": "gpt-oss-20b",
    "messages": [
        {
            "content": "what is the capital of Spain?",

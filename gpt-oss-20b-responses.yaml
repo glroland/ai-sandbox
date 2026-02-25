@@ -1,0 +1,49 @@
+apiVersion: llamastack.io/v1alpha1
+kind: LlamaStackDistribution
+metadata:
+  name: gpt-oss-20b-responses
+  namespace: sandbox
+spec:
+  replicas: 1
+  server:
+    containerSpec:
+      env:
+        - name: VLLM_URL
+          value: 'http://gpt-oss-20b-essential-predictor.sandbox.svc.cluster.local:8080/v1'
+        - name: INFERENCE_MODEL
+          value: gpt-oss-20b
+        - name: VLLM_TLS_VERIFY
+          value: 'false'
+        - name: ENABLE_SENTENCE_TRANSFORMERS
+          value: 'true'
+        - name: EMBEDDING_PROVIDER
+          value: sentence-transformers
+        - name: EMBEDDING_MODEL
+          value: granite-embedding-125m-english
+        - name: EMBEDDING_PROVIDER_MODEL_ID
+          value: ibm-granite/granite-embedding-125m-english
+        - name: POSTGRES_HOST
+          value: postgresql.sandbox.svc.cluster.local
+        - name: POSTGRES_PORT
+          value: '5432'
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              key: database-name
+              name: postgresql
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              key: database-user
+              name: postgresql
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: database-password
+              name: postgresql
+      name: llama-stack
+      port: 8321
+    distribution:
+      name: 'rh-dev'
+    storage:
+      size: 50Gi
