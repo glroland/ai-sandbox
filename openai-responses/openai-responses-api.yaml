@@ -1,8 +1,7 @@
 apiVersion: llamastack.io/v1alpha1
 kind: LlamaStackDistribution
 metadata:
-  name: gpt-oss-20b-responses
-  namespace: sandbox
+  name: openai-responses-api
 spec:
   replicas: 1
   server:
@@ -10,6 +9,10 @@ spec:
       env:
         - name: VLLM_URL
           value: 'http://gpt-oss-20b-essential-predictor.sandbox.svc.cluster.local:8080/v1'
+        - name: VLLM_TLS_VERIFY
+          value: 'false'
+        - name: VLLM_API_TOKEN
+          value: 'nokeyneeded'
         - name: INFERENCE_MODEL
           value: gpt-oss-20b
         - name: VLLM_TLS_VERIFY
@@ -23,24 +26,24 @@ spec:
         - name: EMBEDDING_PROVIDER_MODEL_ID
           value: ibm-granite/granite-embedding-125m-english
         - name: POSTGRES_HOST
-          value: postgresql.sandbox.svc.cluster.local
+          value: lls-postgresql.sandbox.svc.cluster.local
         - name: POSTGRES_PORT
           value: '5432'
         - name: POSTGRES_DB
           valueFrom:
             secretKeyRef:
               key: database-name
-              name: postgresql
+              name: lls-postgresql
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
               key: database-user
-              name: postgresql
+              name: lls-postgresql
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
               key: database-password
-              name: postgresql
+              name: lls-postgresql
       name: llama-stack
       port: 8321
     distribution:
@@ -52,12 +55,11 @@ spec:
 kind: Route
 apiVersion: route.openshift.io/v1
 metadata:
-  name: gpt-oss-20b-responses
-  namespace: sandbox
+  name: openai-responses-api
 spec:
   to:
     kind: Service
-    name: gpt-oss-20b-responses-service
+    name: openai-responses-api-service
     weight: 100
   port:
     targetPort: http
@@ -65,3 +67,4 @@ spec:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
   wildcardPolicy: None
+

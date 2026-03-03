@@ -1,0 +1,61 @@
+---
+- name: Invoke OpenAI-compatible Responses API with MCP servers
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    openai_base_url: "https://my-llama-stack-my-llama-stack.apps.ocp.home.glroland.com/v1"
+    openai_model: "together/openai/gpt-oss-120b"
+    openai_token: "{{ lookup('env', 'OPENAI_API_KEY') }}"
+    input_string: "What is the current temperature in Atlanta?"
+    mcp_server_urls:
+      - url: "https://baseball-chatbot-agent-utilities-baseball-chatbot.apps.ocp.home.glroland.com/mcp"
+        label: "baseball_utilities"
+      - url: "https://baseball-chatbot-agent-game-baseball-chatbot.apps.ocp.home.glroland.com/mcp"
+        label: "baseball_game"
+      - url: "https://baseball-chatbot-agent-team-baseball-chatbot.apps.ocp.home.glroland.com/mcp"
+        label: "baseball_team"
+
+  tasks:
+    - name: Build MCP tools list
+      ansible.builtin.set_fact:
+        mcp_tools: "{{ mcp_tools | default([]) + [item] }}"
+      loop:
+        - type: "mcp"
+          server_label: "{{ mcp_server_urls[0].label }}"
+          server_url: "{{ mcp_server_urls[0].url }}"
+          require_approval: "never"
+        - type: "mcp"
+          server_label: "{{ mcp_server_urls[1].label }}"
+          server_url: "{{ mcp_server_urls[1].url }}"
+          require_approval: "never"
+        - type: "mcp"
+          server_label: "{{ mcp_server_urls[2].label }}"
+          server_url: "{{ mcp_server_urls[2].url }}"
+          require_approval: "never"
+
+    - name: Call OpenAI Responses API
+      ansible.builtin.uri:
+        url: "{{ openai_base_url }}/responses"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ openai_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          model: "{{ openai_model }}"
+          input: "{{ input_string }}"
+          tools: "{{ mcp_tools }}"
+        return_content: true
+        status_code: 200
+      register: api_response
+
+    - name: Show raw response
+      ansible.builtin.debug:
+        var: api_response.json
+
+    - name: Extract and display output text
+      ansible.builtin.debug:
+        msg: "{{ api_response.json.output | selectattr('type', 'equalto', 'message') | map(attribute='content') | flatten | selectattr('type', 'equalto', 'output_text') | map(attribute='text') | list | join('\n') }}"
+      when: api_response.json.output is defined
