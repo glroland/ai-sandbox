@@ -1,0 +1,41 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+ name: gen-ai-aa-mcp-servers
+ namespace: redhat-ods-applications
+data:
+  Automate-IT-Research-Agent: |
+   {
+     "url": "https://automate-it-itops-research-agent-automate-it.apps.ocp.home.glroland.com/mcp",
+     "description": "The Research Agent is responsible for analyzing knowledge and collatoral around a user's IT environment and standards and then providing helpful context to downstream tasks as it relates to the user's request.  The Research Agent is a component within Automate IT, which is a comprehensive platform for diagnosing where time is spent and issues occur across the IT landscape (using ServiceNow and spreadsheets as inputs), and then recommending automation to remediate and shorten the remediation gap."
+   }
+  Automate-IT-Planning-Agent: |
+   {
+     "url": "https://automate-it-itops-planning-agent-automate-it.apps.ocp.home.glroland.com/mcp",
+     "description": "The Planning Agent takes high level requests and objectives from a user and then builds execution documentation that a human support engineer can take to implement the request in a high quality way.  The results of this agent can be used by other agents,  or entered into an organization's knowledge base, or stored in ServiceNow Problem Records for later use by support engineers.  The Planning Agent is a component within Automate IT, which is a comprehensive platform for diagnosing where time is spent and issues occur across the IT landscape (using ServiceNow and spreadsheets as inputs), and then recommending automation to remediate and shorten the remediation gap."
+   }
+  Automate-IT-Automation-Agent: |
+   {
+     "url": "https://automate-it-itops-automation-agent-automate-it.apps.ocp.home.glroland.com/mcp",
+     "description": "The Automation Agent is responsible for writing taylored automation to implement a user request in the context of their IT environment.  This agent supports Ansible Playbooks, Bash Scripts, and PowerShell.  Contrary to most approaches it takes a planning and design step first, where a competing model is evaluating and criticizing the steps taken by the first to help achieve higher quality results.  The Automation Agent is a component within Automate IT, which is a comprehensive platform for diagnosing where time is spent and issues occur across the IT landscape (using ServiceNow and spreadsheets as inputs), and then recommending automation to remediate and shorten the remediation gap."
+   }
+  GitHub-MCP-Server: |
+   {
+     "url": "https://api.githubcopilot.com/mcp",
+     "description": "The GitHub MCP server enables exploration and interaction with repositories, code, and developer resources on GitHub. It provides programmatic access to repositories, issues, pull requests, and related project data, allowing automation and integration within development workflows. With this service, developers can query repositories, discover project metadata, and streamline code-related tasks through MCP-compatible tools."
+   }
+  Major-League-Baseball-Chatbot-Utilities: |
+   {
+     "url": "https://baseball-chatbot-agent-utilities-baseball-chatbot.apps.ocp.home.glroland.com/mcp",
+     "description": "This is the utilities agent supporting the Baseball Chatbot.  It provides helpful tools for getting the weather in a particular city as well as the temperature on a historic date."
+   }
+  Major-League-Baseball-Chatbot-Team: |
+   {
+     "url": "https://baseball-chatbot-agent-team-baseball-chatbot.apps.ocp.home.glroland.com/mcp",
+     "description": "The Teams Agent is an MCP Server developed in support of the Baseball Chatbot.  It is able to look up various information around teams and players for Major League Baseball."
+   }
+  Major-League-Baseball-Chatbot-Game: |
+   {
+     "url": "https://baseball-chatbot-agent-game-baseball-chatbot.apps.ocp.home.glroland.com/mcp",
+     "description": "This is a game metadata information support agent for the Baseball Chatbot.  It is able to determine when teams played, the final score, and various other data points."
+   }
