@@ -5,8 +5,8 @@
   gather_facts: false
 
   vars:
-    openai_base_url: "https://my-llama-stack-my-llama-stack.apps.ocp.home.glroland.com/v1"
-    openai_model: "together/openai/gpt-oss-120b"
+    openai_base_url: "https://openai-responses-api-sandbox.apps.ocp.home.glroland.com/v1"
+    openai_model: "vllm-inference/gpt-oss-20b-essential"
     openai_token: "{{ lookup('env', 'OPENAI_API_KEY') }}"
     input_string: "What is the current temperature in Atlanta?"
     mcp_server_urls:
