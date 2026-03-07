@@ -8,13 +8,13 @@ spec:
     containerSpec:
       env:
         - name: VLLM_URL
-          value: 'http://gpt-oss-20b-essential-predictor.sandbox.svc.cluster.local:8080/v1'
+          value: 'http://gpt-oss-20b-predictor.sandbox.svc.cluster.local:8080/v1'
         - name: VLLM_TLS_VERIFY
           value: 'false'
         - name: VLLM_API_TOKEN
           value: 'nokeyneeded'
         - name: INFERENCE_MODEL
-          value: gpt-oss-20b-essential
+          value: gpt-oss-20b
         - name: VLLM_TLS_VERIFY
           value: 'false'
         - name: ENABLE_SENTENCE_TRANSFORMERS

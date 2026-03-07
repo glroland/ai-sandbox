@@ -7,7 +7,7 @@ curl -s -X 'POST' \
  -H 'Authorization: Bearer $OPENAI_API_KEY' \
  -H 'Content-Type: application/json' \
  -d '{
-   "model": "vllm-inference/gpt-oss-20b-essential",
+   "model": "vllm-inference/gpt-oss-20b",
    "input": "What is the capital of Spain?"
  }' | jq .
 
