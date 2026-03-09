@@ -49,11 +49,28 @@ spec:
               name: lls-postgresql
       name: llama-stack
       port: 8321
+      ##### Manage Through SSO ####
+      #
+      #auth:
+      #  provider_config:
+      #    type: "oauth2_token"
+      #    jwks:
+      #      uri: "https://my-keycloak-server.com/realms/llamastack-demo/protocol/openid-connect/certs" 
+      #      key_recheck_period: 3600
+      #    issuer: "https://my-keycloak-server.com/realms/llamastack-demo" 
+      #    audience: "account"
+      #    verify_tls: true
+      #    claims_mapping:
+      #      llamastack_roles: "roles" 
+      #  access_policy:
+      #    - permit: 
+      #        actions: [read]
+      #        resource: model::vllm-inference/gpt-oss-20b
+      #      description: Allow all authenticated users to access Llama 3.2 model
     distribution:
       name: 'rh-dev'
     storage:
       size: 50Gi
-
 ---
 kind: Route
 apiVersion: route.openshift.io/v1

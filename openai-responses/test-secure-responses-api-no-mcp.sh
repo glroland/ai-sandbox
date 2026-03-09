@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export MODEL_URL=$(oc get routes openai-responses-api -o jsonpath='{.spec.host}' -n sandbox)
+export MODEL_URL=$(oc get routes openai-responses-api-secure -o jsonpath='{.spec.host}' -n sandbox)
 
 curl -s -X 'POST' \
  "https://$MODEL_URL/v1/responses" \
@@ -10,3 +10,4 @@ curl -s -X 'POST' \
    "model": "vllm-inference/gpt-oss-20b",
    "input": "What is the capital of Spain?"
  }' | jq .
+
