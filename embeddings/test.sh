@@ -11,7 +11,6 @@ curl $MODEL_URL \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -d '{
-    "input": "Your text string goes here",
-    "model": "all-minilm-l6-v2"
-  }'
-
+      "input": "Your text string goes here",
+      "model": "'"$MODEL_NAME"'"
+    }'
