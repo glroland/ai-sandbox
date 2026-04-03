@@ -15,11 +15,9 @@ spec:
           valueFrom:
             secretKeyRef:
               key: token
-              name: gpt-oss-20b-essential-sa-gpt-oss-20b-sa
+              name: default-name-gpt-oss-20b-sa
         - name: INFERENCE_MODEL
           value: gpt-oss-20b
-        - name: VLLM_TLS_VERIFY
-          value: 'false'
         - name: ENABLE_SENTENCE_TRANSFORMERS
           value: 'true'
         - name: EMBEDDING_PROVIDER
@@ -76,6 +74,8 @@ kind: Route
 apiVersion: route.openshift.io/v1
 metadata:
   name: openai-responses-api-secure
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
 spec:
   to:
     kind: Service
