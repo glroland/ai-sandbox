@@ -1,0 +1,156 @@
+# PIPELINE DEFINITION
+# Name: download-blob-op
+# Description: Download *blob_name* from *container_name* and expose it as the
+#              *output_file* artifact for downstream components.
+# Inputs:
+#    blob_name: str
+#    container_name: str
+#    storage_account: str [Default: '']
+#    storage_key: str [Default: '']
+# Outputs:
+#    output_file: system.Dataset
+components:
+  comp-download-blob-op:
+    executorLabel: exec-download-blob-op
+    inputDefinitions:
+      parameters:
+        blob_name:
+          parameterType: STRING
+        container_name:
+          parameterType: STRING
+        storage_account:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+        storage_key:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        output_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-download-blob-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - download_blob_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'requests'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef download_blob_op(\n    container_name: str,\n    blob_name: str,\n\
+          \    output_file: Output[Dataset],\n    storage_account: str = \"\",\n \
+          \   storage_key: str = \"\",\n) -> None:\n    \"\"\"\n    Download *blob_name*\
+          \ from *container_name* and expose it as the\n    *output_file* artifact\
+          \ for downstream components.\n\n    Parameters\n    ----------\n    container_name\
+          \  : source container\n    blob_name       : path/name of the blob to download\n\
+          \    output_file     : output artifact that receives the downloaded bytes\n\
+          \    storage_account : override AZURE_STORAGE_ACCOUNT env var (optional)\n\
+          \    storage_key     : override AZURE_STORAGE_KEY env var (optional)\n \
+          \   \"\"\"\n    import base64, datetime, hashlib, hmac, os\n    from urllib.parse\
+          \ import quote\n    import requests\n\n    def _account() -> str:\n    \
+          \    v = storage_account or os.environ.get(\"AZURE_STORAGE_ACCOUNT\", \"\
+          \")\n        if not v:\n            raise EnvironmentError(\"AZURE_STORAGE_ACCOUNT\
+          \ is not set\")\n        return v\n\n    def _key() -> str:\n        v =\
+          \ storage_key or os.environ.get(\"AZURE_STORAGE_KEY\", \"\")\n        if\
+          \ not v:\n            raise EnvironmentError(\"AZURE_STORAGE_KEY is not\
+          \ set\")\n        return v\n\n    def _sign(s: str) -> str:\n        raw\
+          \ = base64.b64decode(_key())\n        return base64.b64encode(\n       \
+          \     hmac.new(raw, s.encode(\"utf-8\"), hashlib.sha256).digest()\n    \
+          \    ).decode()\n\n    def _build_headers(method, container, blob=None,\
+          \ extra=None, qp=None, clen=\"\"):\n        account = _account()\n     \
+          \   utc = datetime.datetime.utcnow().strftime(\"%a, %d %b %Y %H:%M:%S GMT\"\
+          )\n        hdrs = {\"x-ms-date\": utc, \"x-ms-version\": \"2025-11-05\"\
+          }\n        if extra:\n            hdrs.update(extra)\n        ms = sorted((k.lower(),\
+          \ v) for k, v in hdrs.items() if k.lower().startswith(\"x-ms-\"))\n    \
+          \    canon_hdrs = \"\".join(f\"{k}:{v}\\n\" for k, v in ms)\n        resource\
+          \ = f\"/{account}/{container}\"\n        if blob:\n            resource\
+          \ += f\"/{blob}\"\n        if qp:\n            for k in sorted(qp):\n  \
+          \              resource += f\"\\n{k}:{qp[k]}\"\n        sts = (\n      \
+          \      f\"{method}\\n\\n\\n{clen}\\n\"\n            f\"{hdrs.get('Content-MD5','')}\\\
+          n{hdrs.get('Content-Type','')}\\n\"\n            f\"\\n\\n\\n\\n\\n\\n{canon_hdrs}{resource}\"\
+          \n        )\n        hdrs[\"Authorization\"] = f\"SharedKey {account}:{_sign(sts)}\"\
+          \n        return hdrs\n\n    print(f\"[INFO] Downloading File -> {output_file.path}\"\
+          )\n\n    account = _account()\n    url = f\"https://{account}.blob.core.windows.net/{container_name}/{quote(blob_name,\
+          \ safe='/')}\"\n    headers = _build_headers(\"GET\", container_name, blob=blob_name)\n\
+          \n    print(f\"[INFO] Downloading '{blob_name}' from '{container_name}'\"\
+          )\n    resp = requests.get(url, headers=headers, stream=True)\n    if not\
+          \ resp.ok:\n        print(f\"[ERROR] download_blob failed: {resp.status_code}\
+          \ {resp.text}\")\n        resp.raise_for_status()\n\n    with open(output_file.path,\
+          \ \"wb\") as fh:\n        for chunk in resp.iter_content(chunk_size=65536):\n\
+          \            fh.write(chunk)\n\n    print(f\"[INFO] Download complete ->\
+          \ {output_file.path}\")\n\n"
+        image: python:3.11-slim
+pipelineInfo:
+  name: download-blob-op
+root:
+  dag:
+    outputs:
+      artifacts:
+        output_file:
+          artifactSelectors:
+          - outputArtifactKey: output_file
+            producerSubtask: download-blob-op
+    tasks:
+      download-blob-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-download-blob-op
+        inputs:
+          parameters:
+            blob_name:
+              componentInputParameter: blob_name
+            container_name:
+              componentInputParameter: container_name
+            storage_account:
+              componentInputParameter: storage_account
+            storage_key:
+              componentInputParameter: storage_key
+        taskInfo:
+          name: download-blob-op
+  inputDefinitions:
+    parameters:
+      blob_name:
+        parameterType: STRING
+      container_name:
+        parameterType: STRING
+      storage_account:
+        defaultValue: ''
+        isOptional: true
+        parameterType: STRING
+      storage_key:
+        defaultValue: ''
+        isOptional: true
+        parameterType: STRING
+  outputDefinitions:
+    artifacts:
+      output_file:
+        artifactType:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.14.6

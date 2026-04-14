@@ -1,0 +1,140 @@
+# PIPELINE DEFINITION
+# Name: list-blobs-op
+# Description: List all blob names in *container_name* and return them as a list of strings.
+# Inputs:
+#    container_name: str
+#    storage_account: str [Default: '']
+#    storage_key: str [Default: '']
+# Outputs:
+#    Output: list
+components:
+  comp-list-blobs-op:
+    executorLabel: exec-list-blobs-op
+    inputDefinitions:
+      parameters:
+        container_name:
+          parameterType: STRING
+        storage_account:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+        storage_key:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: LIST
+deploymentSpec:
+  executors:
+    exec-list-blobs-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - list_blobs_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'requests'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef list_blobs_op(\n    container_name: str,\n    storage_account:\
+          \ str = \"\",\n    storage_key: str = \"\",\n) -> List[str]:\n    \"\"\"\
+          \n    List all blob names in *container_name* and return them as a list\
+          \ of strings.\n\n    Parameters\n    ----------\n    container_name  : Azure\
+          \ Blob Storage container to list\n    storage_account : override AZURE_STORAGE_ACCOUNT\
+          \ env var (optional)\n    storage_key     : override AZURE_STORAGE_KEY env\
+          \ var (optional)\n    \"\"\"\n    import base64, datetime, hashlib, hmac,\
+          \ os, xml.etree.ElementTree as ET\n    import requests\n\n    def _account()\
+          \ -> str:\n        v = storage_account or os.environ.get(\"AZURE_STORAGE_ACCOUNT\"\
+          , \"\")\n        if not v:\n            raise EnvironmentError(\"AZURE_STORAGE_ACCOUNT\
+          \ is not set\")\n        return v\n\n    def _key() -> str:\n        v =\
+          \ storage_key or os.environ.get(\"AZURE_STORAGE_KEY\", \"\")\n        if\
+          \ not v:\n            raise EnvironmentError(\"AZURE_STORAGE_KEY is not\
+          \ set\")\n        return v\n\n    def _sign(s: str) -> str:\n        raw\
+          \ = base64.b64decode(_key())\n        return base64.b64encode(\n       \
+          \     hmac.new(raw, s.encode(\"utf-8\"), hashlib.sha256).digest()\n    \
+          \    ).decode()\n\n    def _build_headers(method, container, blob=None,\
+          \ extra=None, qp=None, clen=\"\"):\n        account = _account()\n     \
+          \   utc = datetime.datetime.utcnow().strftime(\"%a, %d %b %Y %H:%M:%S GMT\"\
+          )\n        hdrs = {\"x-ms-date\": utc, \"x-ms-version\": \"2025-11-05\"\
+          }\n        if extra:\n            hdrs.update(extra)\n        ms = sorted((k.lower(),\
+          \ v) for k, v in hdrs.items() if k.lower().startswith(\"x-ms-\"))\n    \
+          \    canon_hdrs = \"\".join(f\"{k}:{v}\\n\" for k, v in ms)\n        resource\
+          \ = f\"/{account}/{container}\"\n        if blob:\n            resource\
+          \ += f\"/{blob}\"\n        if qp:\n            for k in sorted(qp):\n  \
+          \              resource += f\"\\n{k}:{qp[k]}\"\n        sts = (\n      \
+          \      f\"{method}\\n\\n\\n{clen}\\n\"\n            f\"{hdrs.get('Content-MD5','')}\\\
+          n{hdrs.get('Content-Type','')}\\n\"\n            f\"\\n\\n\\n\\n\\n\\n{canon_hdrs}{resource}\"\
+          \n        )\n        hdrs[\"Authorization\"] = f\"SharedKey {account}:{_sign(sts)}\"\
+          \n        return hdrs\n\n    account = _account()\n    params = {\"restype\"\
+          : \"container\", \"comp\": \"list\"}\n    url = f\"https://{account}.blob.core.windows.net/{container_name}\"\
+          \n    headers = _build_headers(\"GET\", container_name, qp=params)\n\n \
+          \   print(f\"[INFO] Listing blobs in container '{container_name}'\")\n \
+          \   resp = requests.get(url, headers=headers, params=params)\n    if not\
+          \ resp.ok:\n        print(f\"[ERROR] list_blobs failed: {resp.status_code}\
+          \ {resp.text}\")\n        resp.raise_for_status()\n\n    root = ET.fromstring(resp.text)\n\
+          \    names = [n.find(\"Name\").text for n in root.iter(\"Blob\")]\n    print(f\"\
+          [INFO] Found {len(names)} blob(s)\")\n    return names\n\n"
+        image: python:3.11-slim
+pipelineInfo:
+  name: list-blobs-op
+root:
+  dag:
+    outputs:
+      parameters:
+        Output:
+          valueFromParameter:
+            outputParameterKey: Output
+            producerSubtask: list-blobs-op
+    tasks:
+      list-blobs-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-list-blobs-op
+        inputs:
+          parameters:
+            container_name:
+              componentInputParameter: container_name
+            storage_account:
+              componentInputParameter: storage_account
+            storage_key:
+              componentInputParameter: storage_key
+        taskInfo:
+          name: list-blobs-op
+  inputDefinitions:
+    parameters:
+      container_name:
+        parameterType: STRING
+      storage_account:
+        defaultValue: ''
+        isOptional: true
+        parameterType: STRING
+      storage_key:
+        defaultValue: ''
+        isOptional: true
+        parameterType: STRING
+  outputDefinitions:
+    parameters:
+      Output:
+        parameterType: LIST
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.14.6

@@ -1,0 +1,715 @@
+# PIPELINE DEFINITION
+# Name: azure-docling-ingestion-pipeline
+# Description: For each blob in *input_container*:
+#              1. Download the blob.
+#              2. Run Docling (GPU) to convert it.
+#              3. Upload the original file to *output_container*.
+#              4. Upload all Docling output files to *output_container* under the same prefix.
+#              5. Delete the original blob from *input_container*.
+# Inputs:
+#    docling_batch_size: str [Default: '10']
+#    input_container: str
+#    output_container: str
+#    storage_account: str [Default: '']
+#    storage_key: str [Default: '']
+components:
+  comp-delete-blob-op:
+    executorLabel: exec-delete-blob-op
+    inputDefinitions:
+      parameters:
+        blob_name:
+          parameterType: STRING
+        container_name:
+          parameterType: STRING
+        storage_account:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+        storage_key:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+  comp-download-blob-op:
+    executorLabel: exec-download-blob-op
+    inputDefinitions:
+      parameters:
+        blob_name:
+          parameterType: STRING
+        container_name:
+          parameterType: STRING
+        storage_account:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+        storage_key:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        output_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-for-loop-1:
+    dag:
+      tasks:
+        delete-blob-op:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-delete-blob-op
+          inputs:
+            parameters:
+              blob_name:
+                componentInputParameter: pipelinechannel--list-blobs-op-Output-loop-item
+              container_name:
+                componentInputParameter: pipelinechannel--input_container
+              storage_account:
+                componentInputParameter: pipelinechannel--storage_account
+              storage_key:
+                componentInputParameter: pipelinechannel--storage_key
+          taskInfo:
+            name: delete-blob-op
+        download-blob-op:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-download-blob-op
+          inputs:
+            parameters:
+              blob_name:
+                componentInputParameter: pipelinechannel--list-blobs-op-Output-loop-item
+              container_name:
+                componentInputParameter: pipelinechannel--input_container
+              storage_account:
+                componentInputParameter: pipelinechannel--storage_account
+              storage_key:
+                componentInputParameter: pipelinechannel--storage_key
+          taskInfo:
+            name: download-blob-op
+        run-docling-step-with-gpu:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-run-docling-step-with-gpu
+          dependentTasks:
+          - download-blob-op
+          inputs:
+            artifacts:
+              source_document_path:
+                taskOutputArtifact:
+                  outputArtifactKey: output_file
+                  producerTask: download-blob-op
+            parameters:
+              docling_batch_size:
+                componentInputParameter: pipelinechannel--docling_batch_size
+          taskInfo:
+            name: run-docling-step-with-gpu
+        upload-blob-op:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-upload-blob-op
+          dependentTasks:
+          - download-blob-op
+          inputs:
+            artifacts:
+              input_file:
+                taskOutputArtifact:
+                  outputArtifactKey: output_file
+                  producerTask: download-blob-op
+            parameters:
+              blob_name:
+                componentInputParameter: pipelinechannel--list-blobs-op-Output-loop-item
+              container_name:
+                componentInputParameter: pipelinechannel--output_container
+              storage_account:
+                componentInputParameter: pipelinechannel--storage_account
+              storage_key:
+                componentInputParameter: pipelinechannel--storage_key
+          taskInfo:
+            name: upload-blob-op
+        upload-directory-op:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-upload-directory-op
+          dependentTasks:
+          - run-docling-step-with-gpu
+          inputs:
+            artifacts:
+              input_dir:
+                taskOutputArtifact:
+                  outputArtifactKey: generated_artifacts_path
+                  producerTask: run-docling-step-with-gpu
+            parameters:
+              blob_prefix:
+                componentInputParameter: pipelinechannel--list-blobs-op-Output-loop-item
+              container_name:
+                componentInputParameter: pipelinechannel--output_container
+              storage_account:
+                componentInputParameter: pipelinechannel--storage_account
+              storage_key:
+                componentInputParameter: pipelinechannel--storage_key
+          taskInfo:
+            name: upload-directory-op
+    inputDefinitions:
+      parameters:
+        pipelinechannel--docling_batch_size:
+          parameterType: STRING
+        pipelinechannel--input_container:
+          parameterType: STRING
+        pipelinechannel--list-blobs-op-Output:
+          parameterType: LIST
+        pipelinechannel--list-blobs-op-Output-loop-item:
+          parameterType: STRING
+        pipelinechannel--output_container:
+          parameterType: STRING
+        pipelinechannel--storage_account:
+          parameterType: STRING
+        pipelinechannel--storage_key:
+          parameterType: STRING
+  comp-list-blobs-op:
+    executorLabel: exec-list-blobs-op
+    inputDefinitions:
+      parameters:
+        container_name:
+          parameterType: STRING
+        storage_account:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+        storage_key:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: LIST
+  comp-run-docling-step-with-gpu:
+    executorLabel: exec-run-docling-step-with-gpu
+    inputDefinitions:
+      artifacts:
+        source_document_path:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+      parameters:
+        docling_batch_size:
+          defaultValue: '4'
+          isOptional: true
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        generated_artifacts_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-upload-blob-op:
+    executorLabel: exec-upload-blob-op
+    inputDefinitions:
+      artifacts:
+        input_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        blob_name:
+          parameterType: STRING
+        container_name:
+          parameterType: STRING
+        storage_account:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+        storage_key:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+  comp-upload-directory-op:
+    executorLabel: exec-upload-directory-op
+    inputDefinitions:
+      artifacts:
+        input_dir:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        blob_prefix:
+          parameterType: STRING
+        container_name:
+          parameterType: STRING
+        storage_account:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+        storage_key:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+deploymentSpec:
+  executors:
+    exec-delete-blob-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - delete_blob_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'requests'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef delete_blob_op(\n    container_name: str,\n    blob_name: str,\n\
+          \    storage_account: str = \"\",\n    storage_key: str = \"\",\n) -> None:\n\
+          \    \"\"\"\n    Permanently delete *blob_name* from *container_name*.\n\
+          \n    Parameters\n    ----------\n    container_name  : container that holds\
+          \ the blob\n    blob_name       : blob to delete\n    storage_account :\
+          \ override AZURE_STORAGE_ACCOUNT env var (optional)\n    storage_key   \
+          \  : override AZURE_STORAGE_KEY env var (optional)\n    \"\"\"\n    import\
+          \ base64, datetime, hashlib, hmac, os\n    from urllib.parse import quote\n\
+          \    import requests\n\n    def _account() -> str:\n        v = storage_account\
+          \ or os.environ.get(\"AZURE_STORAGE_ACCOUNT\", \"\")\n        if not v:\n\
+          \            raise EnvironmentError(\"AZURE_STORAGE_ACCOUNT is not set\"\
+          )\n        return v\n\n    def _key() -> str:\n        v = storage_key or\
+          \ os.environ.get(\"AZURE_STORAGE_KEY\", \"\")\n        if not v:\n     \
+          \       raise EnvironmentError(\"AZURE_STORAGE_KEY is not set\")\n     \
+          \   return v\n\n    def _sign(s: str) -> str:\n        raw = base64.b64decode(_key())\n\
+          \        return base64.b64encode(\n            hmac.new(raw, s.encode(\"\
+          utf-8\"), hashlib.sha256).digest()\n        ).decode()\n\n    def _build_headers(method,\
+          \ container, blob=None, extra=None, qp=None, clen=\"\"):\n        account\
+          \ = _account()\n        utc = datetime.datetime.utcnow().strftime(\"%a,\
+          \ %d %b %Y %H:%M:%S GMT\")\n        hdrs = {\"x-ms-date\": utc, \"x-ms-version\"\
+          : \"2025-11-05\"}\n        if extra:\n            hdrs.update(extra)\n \
+          \       ms = sorted((k.lower(), v) for k, v in hdrs.items() if k.lower().startswith(\"\
+          x-ms-\"))\n        canon_hdrs = \"\".join(f\"{k}:{v}\\n\" for k, v in ms)\n\
+          \        resource = f\"/{account}/{container}\"\n        if blob:\n    \
+          \        resource += f\"/{blob}\"\n        if qp:\n            for k in\
+          \ sorted(qp):\n                resource += f\"\\n{k}:{qp[k]}\"\n       \
+          \ sts = (\n            f\"{method}\\n\\n\\n{clen}\\n\"\n            f\"\
+          {hdrs.get('Content-MD5','')}\\n{hdrs.get('Content-Type','')}\\n\"\n    \
+          \        f\"\\n\\n\\n\\n\\n\\n{canon_hdrs}{resource}\"\n        )\n    \
+          \    hdrs[\"Authorization\"] = f\"SharedKey {account}:{_sign(sts)}\"\n \
+          \       return hdrs\n\n    account = _account()\n    url = f\"https://{account}.blob.core.windows.net/{container_name}/{quote(blob_name,\
+          \ safe='/')}\"\n    headers = _build_headers(\"DELETE\", container_name,\
+          \ blob=blob_name)\n\n    print(f\"[INFO] Deleting '{blob_name}' from '{container_name}'\"\
+          )\n    resp = requests.delete(url, headers=headers)\n    if not resp.ok:\n\
+          \        print(f\"[ERROR] delete_blob failed: {resp.status_code} {resp.text}\"\
+          )\n        resp.raise_for_status()\n\n    print(f\"[INFO] Delete complete:\
+          \ '{blob_name}'\")\n\n"
+        image: python:3.11-slim
+    exec-download-blob-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - download_blob_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'requests'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef download_blob_op(\n    container_name: str,\n    blob_name: str,\n\
+          \    output_file: Output[Dataset],\n    storage_account: str = \"\",\n \
+          \   storage_key: str = \"\",\n) -> None:\n    \"\"\"\n    Download *blob_name*\
+          \ from *container_name* and expose it as the\n    *output_file* artifact\
+          \ for downstream components.\n\n    Parameters\n    ----------\n    container_name\
+          \  : source container\n    blob_name       : path/name of the blob to download\n\
+          \    output_file     : output artifact that receives the downloaded bytes\n\
+          \    storage_account : override AZURE_STORAGE_ACCOUNT env var (optional)\n\
+          \    storage_key     : override AZURE_STORAGE_KEY env var (optional)\n \
+          \   \"\"\"\n    import base64, datetime, hashlib, hmac, os\n    from urllib.parse\
+          \ import quote\n    import requests\n\n    def _account() -> str:\n    \
+          \    v = storage_account or os.environ.get(\"AZURE_STORAGE_ACCOUNT\", \"\
+          \")\n        if not v:\n            raise EnvironmentError(\"AZURE_STORAGE_ACCOUNT\
+          \ is not set\")\n        return v\n\n    def _key() -> str:\n        v =\
+          \ storage_key or os.environ.get(\"AZURE_STORAGE_KEY\", \"\")\n        if\
+          \ not v:\n            raise EnvironmentError(\"AZURE_STORAGE_KEY is not\
+          \ set\")\n        return v\n\n    def _sign(s: str) -> str:\n        raw\
+          \ = base64.b64decode(_key())\n        return base64.b64encode(\n       \
+          \     hmac.new(raw, s.encode(\"utf-8\"), hashlib.sha256).digest()\n    \
+          \    ).decode()\n\n    def _build_headers(method, container, blob=None,\
+          \ extra=None, qp=None, clen=\"\"):\n        account = _account()\n     \
+          \   utc = datetime.datetime.utcnow().strftime(\"%a, %d %b %Y %H:%M:%S GMT\"\
+          )\n        hdrs = {\"x-ms-date\": utc, \"x-ms-version\": \"2025-11-05\"\
+          }\n        if extra:\n            hdrs.update(extra)\n        ms = sorted((k.lower(),\
+          \ v) for k, v in hdrs.items() if k.lower().startswith(\"x-ms-\"))\n    \
+          \    canon_hdrs = \"\".join(f\"{k}:{v}\\n\" for k, v in ms)\n        resource\
+          \ = f\"/{account}/{container}\"\n        if blob:\n            resource\
+          \ += f\"/{blob}\"\n        if qp:\n            for k in sorted(qp):\n  \
+          \              resource += f\"\\n{k}:{qp[k]}\"\n        sts = (\n      \
+          \      f\"{method}\\n\\n\\n{clen}\\n\"\n            f\"{hdrs.get('Content-MD5','')}\\\
+          n{hdrs.get('Content-Type','')}\\n\"\n            f\"\\n\\n\\n\\n\\n\\n{canon_hdrs}{resource}\"\
+          \n        )\n        hdrs[\"Authorization\"] = f\"SharedKey {account}:{_sign(sts)}\"\
+          \n        return hdrs\n\n    print(f\"[INFO] Downloading File -> {output_file.path}\"\
+          )\n\n    account = _account()\n    url = f\"https://{account}.blob.core.windows.net/{container_name}/{quote(blob_name,\
+          \ safe='/')}\"\n    headers = _build_headers(\"GET\", container_name, blob=blob_name)\n\
+          \n    print(f\"[INFO] Downloading '{blob_name}' from '{container_name}'\"\
+          )\n    resp = requests.get(url, headers=headers, stream=True)\n    if not\
+          \ resp.ok:\n        print(f\"[ERROR] download_blob failed: {resp.status_code}\
+          \ {resp.text}\")\n        resp.raise_for_status()\n\n    with open(output_file.path,\
+          \ \"wb\") as fh:\n        for chunk in resp.iter_content(chunk_size=65536):\n\
+          \            fh.write(chunk)\n\n    print(f\"[INFO] Download complete ->\
+          \ {output_file.path}\")\n\n"
+        image: python:3.11-slim
+    exec-list-blobs-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - list_blobs_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'requests'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef list_blobs_op(\n    container_name: str,\n    storage_account:\
+          \ str = \"\",\n    storage_key: str = \"\",\n) -> List[str]:\n    \"\"\"\
+          \n    List all blob names in *container_name* and return them as a list\
+          \ of strings.\n\n    Parameters\n    ----------\n    container_name  : Azure\
+          \ Blob Storage container to list\n    storage_account : override AZURE_STORAGE_ACCOUNT\
+          \ env var (optional)\n    storage_key     : override AZURE_STORAGE_KEY env\
+          \ var (optional)\n    \"\"\"\n    import base64, datetime, hashlib, hmac,\
+          \ os, xml.etree.ElementTree as ET\n    import requests\n\n    def _account()\
+          \ -> str:\n        v = storage_account or os.environ.get(\"AZURE_STORAGE_ACCOUNT\"\
+          , \"\")\n        if not v:\n            raise EnvironmentError(\"AZURE_STORAGE_ACCOUNT\
+          \ is not set\")\n        return v\n\n    def _key() -> str:\n        v =\
+          \ storage_key or os.environ.get(\"AZURE_STORAGE_KEY\", \"\")\n        if\
+          \ not v:\n            raise EnvironmentError(\"AZURE_STORAGE_KEY is not\
+          \ set\")\n        return v\n\n    def _sign(s: str) -> str:\n        raw\
+          \ = base64.b64decode(_key())\n        return base64.b64encode(\n       \
+          \     hmac.new(raw, s.encode(\"utf-8\"), hashlib.sha256).digest()\n    \
+          \    ).decode()\n\n    def _build_headers(method, container, blob=None,\
+          \ extra=None, qp=None, clen=\"\"):\n        account = _account()\n     \
+          \   utc = datetime.datetime.utcnow().strftime(\"%a, %d %b %Y %H:%M:%S GMT\"\
+          )\n        hdrs = {\"x-ms-date\": utc, \"x-ms-version\": \"2025-11-05\"\
+          }\n        if extra:\n            hdrs.update(extra)\n        ms = sorted((k.lower(),\
+          \ v) for k, v in hdrs.items() if k.lower().startswith(\"x-ms-\"))\n    \
+          \    canon_hdrs = \"\".join(f\"{k}:{v}\\n\" for k, v in ms)\n        resource\
+          \ = f\"/{account}/{container}\"\n        if blob:\n            resource\
+          \ += f\"/{blob}\"\n        if qp:\n            for k in sorted(qp):\n  \
+          \              resource += f\"\\n{k}:{qp[k]}\"\n        sts = (\n      \
+          \      f\"{method}\\n\\n\\n{clen}\\n\"\n            f\"{hdrs.get('Content-MD5','')}\\\
+          n{hdrs.get('Content-Type','')}\\n\"\n            f\"\\n\\n\\n\\n\\n\\n{canon_hdrs}{resource}\"\
+          \n        )\n        hdrs[\"Authorization\"] = f\"SharedKey {account}:{_sign(sts)}\"\
+          \n        return hdrs\n\n    account = _account()\n    params = {\"restype\"\
+          : \"container\", \"comp\": \"list\"}\n    url = f\"https://{account}.blob.core.windows.net/{container_name}\"\
+          \n    headers = _build_headers(\"GET\", container_name, qp=params)\n\n \
+          \   print(f\"[INFO] Listing blobs in container '{container_name}'\")\n \
+          \   resp = requests.get(url, headers=headers, params=params)\n    if not\
+          \ resp.ok:\n        print(f\"[ERROR] list_blobs failed: {resp.status_code}\
+          \ {resp.text}\")\n        resp.raise_for_status()\n\n    root = ET.fromstring(resp.text)\n\
+          \    names = [n.find(\"Name\").text for n in root.iter(\"Blob\")]\n    print(f\"\
+          [INFO] Found {len(names)} blob(s)\")\n    return names\n\n"
+        image: python:3.11-slim
+    exec-run-docling-step-with-gpu:
+      container:
+        args:
+        - -v
+        - --device
+        - cuda
+        - --from
+        - pdf
+        - --to
+        - md
+        - --image-export-mode
+        - referenced
+        - --ocr
+        - --ocr-engine
+        - rapidocr
+        - --page-batch-size
+        - '{{$.inputs.parameters[''docling_batch_size'']}}'
+        - --output
+        - '{{$.outputs.artifacts[''generated_artifacts_path''].path}}'
+        - '{{$.inputs.artifacts[''source_document_path''].path}}'
+        command:
+        - docling
+        image: quay.io/bball/docling-rapidocr-pipeline:1.0
+        resources:
+          accelerator:
+            count: '1'
+            resourceCount: '1'
+            resourceType: nvidia.com/gpu
+            type: nvidia.com/gpu
+          cpuLimit: 10.0
+          resourceCpuLimit: '10'
+    exec-upload-blob-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - upload_blob_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'requests'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef upload_blob_op(\n    container_name: str,\n    blob_name: str,\n\
+          \    input_file: Input[Dataset],\n    storage_account: str = \"\",\n   \
+          \ storage_key: str = \"\",\n) -> None:\n    \"\"\"\n    Upload the *input_file*\
+          \ artifact to *container_name* as a BlockBlob\n    named *blob_name*.\n\n\
+          \    Parameters\n    ----------\n    container_name  : destination container\n\
+          \    blob_name       : path/name to assign the blob in the container\n \
+          \   input_file      : input artifact whose bytes are uploaded\n    storage_account\
+          \ : override AZURE_STORAGE_ACCOUNT env var (optional)\n    storage_key \
+          \    : override AZURE_STORAGE_KEY env var (optional)\n    \"\"\"\n    import\
+          \ base64, datetime, hashlib, hmac, os\n    from urllib.parse import quote\n\
+          \    import requests\n\n    def _account() -> str:\n        v = storage_account\
+          \ or os.environ.get(\"AZURE_STORAGE_ACCOUNT\", \"\")\n        if not v:\n\
+          \            raise EnvironmentError(\"AZURE_STORAGE_ACCOUNT is not set\"\
+          )\n        return v\n\n    def _key() -> str:\n        v = storage_key or\
+          \ os.environ.get(\"AZURE_STORAGE_KEY\", \"\")\n        if not v:\n     \
+          \       raise EnvironmentError(\"AZURE_STORAGE_KEY is not set\")\n     \
+          \   return v\n\n    def _sign(s: str) -> str:\n        raw = base64.b64decode(_key())\n\
+          \        return base64.b64encode(\n            hmac.new(raw, s.encode(\"\
+          utf-8\"), hashlib.sha256).digest()\n        ).decode()\n\n    def _build_headers(method,\
+          \ container, blob=None, extra=None, qp=None, clen=\"\"):\n        account\
+          \ = _account()\n        utc = datetime.datetime.utcnow().strftime(\"%a,\
+          \ %d %b %Y %H:%M:%S GMT\")\n        hdrs = {\"x-ms-date\": utc, \"x-ms-version\"\
+          : \"2025-11-05\"}\n        if extra:\n            hdrs.update(extra)\n \
+          \       ms = sorted((k.lower(), v) for k, v in hdrs.items() if k.lower().startswith(\"\
+          x-ms-\"))\n        canon_hdrs = \"\".join(f\"{k}:{v}\\n\" for k, v in ms)\n\
+          \        resource = f\"/{account}/{container}\"\n        if blob:\n    \
+          \        resource += f\"/{blob}\"\n        if qp:\n            for k in\
+          \ sorted(qp):\n                resource += f\"\\n{k}:{qp[k]}\"\n       \
+          \ sts = (\n            f\"{method}\\n\\n\\n{clen}\\n\"\n            f\"\
+          {hdrs.get('Content-MD5','')}\\n{hdrs.get('Content-Type','')}\\n\"\n    \
+          \        f\"\\n\\n\\n\\n\\n\\n{canon_hdrs}{resource}\"\n        )\n    \
+          \    hdrs[\"Authorization\"] = f\"SharedKey {account}:{_sign(sts)}\"\n \
+          \       return hdrs\n\n    with open(input_file.path, \"rb\") as fh:\n \
+          \       data = fh.read()\n\n    content_length = str(len(data))\n    account\
+          \ = _account()\n    url = f\"https://{account}.blob.core.windows.net/{container_name}/{quote(blob_name,\
+          \ safe='/')}\"\n    extra = {\"Content-Type\": \"application/octet-stream\"\
+          , \"x-ms-blob-type\": \"BlockBlob\"}\n    headers = _build_headers(\n  \
+          \      \"PUT\", container_name, blob=blob_name, extra=extra, clen=content_length\n\
+          \    )\n    headers[\"Content-Length\"] = content_length\n\n    print(f\"\
+          [INFO] Uploading {content_length} bytes -> '{container_name}/{blob_name}'\"\
+          )\n    resp = requests.put(url, headers=headers, data=data)\n    if not\
+          \ resp.ok:\n        print(f\"[ERROR] upload_blob failed: {resp.status_code}\
+          \ {resp.text}\")\n        resp.raise_for_status()\n\n    print(f\"[INFO]\
+          \ Upload complete: '{blob_name}'\")\n\n"
+        image: python:3.11-slim
+    exec-upload-directory-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - upload_directory_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'requests'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef upload_directory_op(\n    container_name: str,\n    blob_prefix:\
+          \ str,\n    input_dir: Input[Dataset],\n    storage_account: str = \"\"\
+          ,\n    storage_key: str = \"\",\n) -> None:\n    \"\"\"\n    Upload every\
+          \ file in *input_dir* to *container_name*.\n\n    Each file is stored as\
+          \ ``{blob_prefix}/{relative_path}`` where\n    *relative_path* is the file's\
+          \ path relative to *input_dir*.\n\n    Parameters\n    ----------\n    container_name\
+          \  : destination container\n    blob_prefix     : prefix prepended to every\
+          \ uploaded blob name\n    input_dir       : input artifact directory whose\
+          \ files are uploaded\n    storage_account : override AZURE_STORAGE_ACCOUNT\
+          \ env var (optional)\n    storage_key     : override AZURE_STORAGE_KEY env\
+          \ var (optional)\n    \"\"\"\n    import base64, datetime, hashlib, hmac,\
+          \ os\n    from urllib.parse import quote\n    import requests\n\n    def\
+          \ _account() -> str:\n        v = storage_account or os.environ.get(\"AZURE_STORAGE_ACCOUNT\"\
+          , \"\")\n        if not v:\n            raise EnvironmentError(\"AZURE_STORAGE_ACCOUNT\
+          \ is not set\")\n        return v\n\n    def _key() -> str:\n        v =\
+          \ storage_key or os.environ.get(\"AZURE_STORAGE_KEY\", \"\")\n        if\
+          \ not v:\n            raise EnvironmentError(\"AZURE_STORAGE_KEY is not\
+          \ set\")\n        return v\n\n    def _sign(s: str) -> str:\n        raw\
+          \ = base64.b64decode(_key())\n        return base64.b64encode(\n       \
+          \     hmac.new(raw, s.encode(\"utf-8\"), hashlib.sha256).digest()\n    \
+          \    ).decode()\n\n    def _build_headers(method, container, blob=None,\
+          \ extra=None, qp=None, clen=\"\"):\n        account = _account()\n     \
+          \   utc = datetime.datetime.utcnow().strftime(\"%a, %d %b %Y %H:%M:%S GMT\"\
+          )\n        hdrs = {\"x-ms-date\": utc, \"x-ms-version\": \"2025-11-05\"\
+          }\n        if extra:\n            hdrs.update(extra)\n        ms = sorted((k.lower(),\
+          \ v) for k, v in hdrs.items() if k.lower().startswith(\"x-ms-\"))\n    \
+          \    canon_hdrs = \"\".join(f\"{k}:{v}\\n\" for k, v in ms)\n        resource\
+          \ = f\"/{account}/{container}\"\n        if blob:\n            resource\
+          \ += f\"/{blob}\"\n        if qp:\n            for k in sorted(qp):\n  \
+          \              resource += f\"\\n{k}:{qp[k]}\"\n        sts = (\n      \
+          \      f\"{method}\\n\\n\\n{clen}\\n\"\n            f\"{hdrs.get('Content-MD5','')}\\\
+          n{hdrs.get('Content-Type','')}\\n\"\n            f\"\\n\\n\\n\\n\\n\\n{canon_hdrs}{resource}\"\
+          \n        )\n        hdrs[\"Authorization\"] = f\"SharedKey {account}:{_sign(sts)}\"\
+          \n        return hdrs\n\n    def _upload_file(local_path: str, blob_name:\
+          \ str):\n        with open(local_path, \"rb\") as fh:\n            data\
+          \ = fh.read()\n        content_length = str(len(data))\n        account\
+          \ = _account()\n        url = f\"https://{account}.blob.core.windows.net/{container_name}/{quote(blob_name,\
+          \ safe='/')}\"\n        extra = {\"Content-Type\": \"application/octet-stream\"\
+          , \"x-ms-blob-type\": \"BlockBlob\"}\n        headers = _build_headers(\n\
+          \            \"PUT\", container_name, blob=blob_name, extra=extra, clen=content_length\n\
+          \        )\n        headers[\"Content-Length\"] = content_length\n     \
+          \   print(f\"[INFO] Uploading {content_length} bytes -> '{container_name}/{blob_name}'\"\
+          )\n        resp = requests.put(url, headers=headers, data=data)\n      \
+          \  if not resp.ok:\n            print(f\"[ERROR] upload failed: {resp.status_code}\
+          \ {resp.text}\")\n            resp.raise_for_status()\n        print(f\"\
+          [INFO] Upload complete: '{blob_name}'\")\n\n    base_dir = input_dir.path\n\
+          \    prefix = blob_prefix.rstrip(\"/\")\n    for dirpath, _, filenames in\
+          \ os.walk(base_dir):\n        for filename in filenames:\n            local_path\
+          \ = os.path.join(dirpath, filename)\n            rel_path = os.path.relpath(local_path,\
+          \ base_dir)\n            blob_name = f\"{prefix}/{rel_path}\"\n        \
+          \    _upload_file(local_path, blob_name)\n\n"
+        image: python:3.11-slim
+pipelineInfo:
+  description: 'For each blob in *input_container*:
+
+    1. Download the blob.
+
+    2. Run Docling (GPU) to convert it.
+
+    3. Upload the original file to *output_container*.
+
+    4. Upload all Docling output files to *output_container* under the same prefix.
+
+    5. Delete the original blob from *input_container*.'
+  name: azure-docling-ingestion-pipeline
+root:
+  dag:
+    tasks:
+      for-loop-1:
+        componentRef:
+          name: comp-for-loop-1
+        dependentTasks:
+        - list-blobs-op
+        inputs:
+          parameters:
+            pipelinechannel--docling_batch_size:
+              componentInputParameter: docling_batch_size
+            pipelinechannel--input_container:
+              componentInputParameter: input_container
+            pipelinechannel--list-blobs-op-Output:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: list-blobs-op
+            pipelinechannel--output_container:
+              componentInputParameter: output_container
+            pipelinechannel--storage_account:
+              componentInputParameter: storage_account
+            pipelinechannel--storage_key:
+              componentInputParameter: storage_key
+        iteratorPolicy:
+          parallelismLimit: 1
+        parameterIterator:
+          itemInput: pipelinechannel--list-blobs-op-Output-loop-item
+          items:
+            inputParameter: pipelinechannel--list-blobs-op-Output
+        taskInfo:
+          name: for-loop-1
+      list-blobs-op:
+        cachingOptions: {}
+        componentRef:
+          name: comp-list-blobs-op
+        inputs:
+          parameters:
+            container_name:
+              componentInputParameter: input_container
+            storage_account:
+              componentInputParameter: storage_account
+            storage_key:
+              componentInputParameter: storage_key
+        taskInfo:
+          name: list-blobs-op
+  inputDefinitions:
+    parameters:
+      docling_batch_size:
+        defaultValue: '10'
+        isOptional: true
+        parameterType: STRING
+      input_container:
+        parameterType: STRING
+      output_container:
+        parameterType: STRING
+      storage_account:
+        defaultValue: ''
+        isOptional: true
+        parameterType: STRING
+      storage_key:
+        defaultValue: ''
+        isOptional: true
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.14.6
