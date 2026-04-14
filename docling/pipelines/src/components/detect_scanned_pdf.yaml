@@ -43,7 +43,7 @@ deploymentSpec:
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
           \ python3 -m pip install --quiet --no-warn-script-location 'pypdf>=4.0.0'\
-          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -57,11 +57,13 @@ deploymentSpec:
 
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef detect_scanned_pdf_op(\n    input_file: Input[Artifact],\n  \
-          \  chars_per_page_threshold: int = _CHARS_PER_PAGE_THRESHOLD,\n) -> bool:\n\
-          \    \"\"\"\n    Detect whether a PDF is a scanned document that requires\
-          \ OCR.\n\n    A PDF is classified as scanned when the average number of\
-          \ extractable\n    characters per page falls below *chars_per_page_threshold*,\
+          \ *\n\ndef detect_scanned_pdf_op(\n    input_file: Input[Artifact],\n\n\
+          \    # Minimum average characters per page to consider a PDF digitally-born\
+          \ (not scanned).\n    # Pages with fewer characters than this threshold\
+          \ are treated as image-only pages.\n    chars_per_page_threshold: int =\
+          \ 50,\n) -> bool:\n    \"\"\"\n    Detect whether a PDF is a scanned document\
+          \ that requires OCR.\n\n    A PDF is classified as scanned when the average\
+          \ number of extractable\n    characters per page falls below *chars_per_page_threshold*,\
           \ which\n    indicates that the pages contain images rather than embedded\
           \ text.\n\n    Parameters\n    ----------\n    input_file              :\
           \ PDF artifact to inspect\n    chars_per_page_threshold: avg chars/page\
@@ -123,4 +125,4 @@ root:
       Output:
         parameterType: BOOLEAN
 schemaVersion: 2.1.0
-sdkVersion: kfp-2.14.6
+sdkVersion: kfp-2.16.0

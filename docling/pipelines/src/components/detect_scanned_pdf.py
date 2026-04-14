@@ -4,15 +4,13 @@ from kfp.dsl import Input, Artifact
 _BASE_IMAGE = "python:3.11-slim"
 _PACKAGES = ["pypdf>=4.0.0"]
 
-# Minimum average characters per page to consider a PDF digitally-born (not scanned).
-# Pages with fewer characters than this threshold are treated as image-only pages.
-_CHARS_PER_PAGE_THRESHOLD = 50
-
-
 @dsl.component(base_image=_BASE_IMAGE, packages_to_install=_PACKAGES)
 def detect_scanned_pdf_op(
     input_file: Input[Artifact],
-    chars_per_page_threshold: int = _CHARS_PER_PAGE_THRESHOLD,
+
+    # Minimum average characters per page to consider a PDF digitally-born (not scanned).
+    # Pages with fewer characters than this threshold are treated as image-only pages.
+    chars_per_page_threshold: int = 50,
 ) -> bool:
     """
     Detect whether a PDF is a scanned document that requires OCR.

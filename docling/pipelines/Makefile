@@ -24,4 +24,4 @@ run-basic:
 	cd src && $(KFP) run create --package-file basic-pipeline.yaml --experiment-name Default --run-name "$(TIMESTAMP)" "source_document_url=https://raw.githubusercontent.com/glroland/mechanic/cf1cd0395b867edacd3f69ac32737763617d1dbd/chatbot/src/assets/c3_repair.pdf"
 
 run-azure:
-	cd src && $(KFP) run create --package-file azure-pipeline.yaml --experiment-name Default --run-name "$(TIMESTAMP)" input_container="input" output_container="output" docling_batch_size=10 storage_account="docling" "storage_key=$(AZURE_STORAGE_KEY)"
+	cd src && $(KFP) run create --package-file azure-pipeline.yaml --experiment-name Default --run-name "$(TIMESTAMP)" input_container="input" output_container="output" storage_account="docling" "storage_key=$(AZURE_STORAGE_KEY)"

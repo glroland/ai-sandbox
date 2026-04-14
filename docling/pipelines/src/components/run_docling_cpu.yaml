@@ -91,4 +91,4 @@ root:
           schemaTitle: system.Dataset
           schemaVersion: 0.0.1
 schemaVersion: 2.1.0
-sdkVersion: kfp-2.14.6
+sdkVersion: kfp-2.16.0

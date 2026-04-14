@@ -4,8 +4,8 @@
 #              1. Download the blob.
 #              2. Detect whether the PDF is a scanned document.
 #              3. Run Docling (GPU if scanned, CPU otherwise) to convert it.
-#              4. Upload the original file to *output_container*.
-#              5. Upload all Docling output files to *output_container* under the same prefix.
+#              4. Upload all Docling output files to *output_container* under the same prefix.
+#              5. Upload the original file to *output_container*.
 #              6. Delete the original blob from *input_container*.
 # Inputs:
 #    docling_batch_size: str [Default: '10']
@@ -24,8 +24,7 @@ components:
               producerSubtask: run-docling-step-with-gpu
       tasks:
         run-docling-step-with-gpu:
-          cachingOptions:
-            enableCache: true
+          cachingOptions: {}
           componentRef:
             name: comp-run-docling-step-with-gpu
           inputs:
@@ -64,8 +63,7 @@ components:
               producerSubtask: run-docling-step-with-cpu
       tasks:
         run-docling-step-with-cpu:
-          cachingOptions:
-            enableCache: true
+          cachingOptions: {}
           componentRef:
             name: comp-run-docling-step-with-cpu
           inputs:
@@ -156,22 +154,6 @@ components:
           artifactType:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
-  comp-delete-blob-op:
-    executorLabel: exec-delete-blob-op
-    inputDefinitions:
-      parameters:
-        blob_name:
-          parameterType: STRING
-        container_name:
-          parameterType: STRING
-        storage_account:
-          defaultValue: ''
-          isOptional: true
-          parameterType: STRING
-        storage_key:
-          defaultValue: ''
-          isOptional: true
-          parameterType: STRING
   comp-detect-scanned-pdf-op:
     executorLabel: exec-detect-scanned-pdf-op
     inputDefinitions:
@@ -235,26 +217,8 @@ components:
                 componentInputParameter: pipelinechannel--docling_batch_size
           taskInfo:
             name: condition-branches-2
-        delete-blob-op:
-          cachingOptions:
-            enableCache: true
-          componentRef:
-            name: comp-delete-blob-op
-          inputs:
-            parameters:
-              blob_name:
-                componentInputParameter: pipelinechannel--list-blobs-op-Output-loop-item
-              container_name:
-                componentInputParameter: pipelinechannel--input_container
-              storage_account:
-                componentInputParameter: pipelinechannel--storage_account
-              storage_key:
-                componentInputParameter: pipelinechannel--storage_key
-          taskInfo:
-            name: delete-blob-op
         detect-scanned-pdf-op:
-          cachingOptions:
-            enableCache: true
+          cachingOptions: {}
           componentRef:
             name: comp-detect-scanned-pdf-op
           dependentTasks:
@@ -268,8 +232,7 @@ components:
           taskInfo:
             name: detect-scanned-pdf-op
         download-blob-op:
-          cachingOptions:
-            enableCache: true
+          cachingOptions: {}
           componentRef:
             name: comp-download-blob-op
           inputs:
@@ -285,12 +248,12 @@ components:
           taskInfo:
             name: download-blob-op
         upload-blob-op:
-          cachingOptions:
-            enableCache: true
+          cachingOptions: {}
           componentRef:
             name: comp-upload-blob-op
           dependentTasks:
           - download-blob-op
+          - upload-directory-op
           inputs:
             artifacts:
               input_file:
@@ -309,8 +272,7 @@ components:
           taskInfo:
             name: upload-blob-op
         upload-directory-op:
-          cachingOptions:
-            enableCache: true
+          cachingOptions: {}
           componentRef:
             name: comp-upload-directory-op
           dependentTasks:
@@ -448,71 +410,6 @@ components:
           parameterType: STRING
 deploymentSpec:
   executors:
-    exec-delete-blob-op:
-      container:
-        args:
-        - --executor_input
-        - '{{$}}'
-        - --function_to_execute
-        - delete_blob_op
-        command:
-        - sh
-        - -c
-        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
-          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'requests'  &&\
-          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
-          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
-          $0\" \"$@\"\n"
-        - sh
-        - -ec
-        - 'program_path=$(mktemp -d)
-
-
-          printf "%s" "$0" > "$program_path/ephemeral_component.py"
-
-          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
-
-          '
-        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef delete_blob_op(\n    container_name: str,\n    blob_name: str,\n\
-          \    storage_account: str = \"\",\n    storage_key: str = \"\",\n) -> None:\n\
-          \    \"\"\"\n    Permanently delete *blob_name* from *container_name*.\n\
-          \n    Parameters\n    ----------\n    container_name  : container that holds\
-          \ the blob\n    blob_name       : blob to delete\n    storage_account :\
-          \ override AZURE_STORAGE_ACCOUNT env var (optional)\n    storage_key   \
-          \  : override AZURE_STORAGE_KEY env var (optional)\n    \"\"\"\n    import\
-          \ base64, datetime, hashlib, hmac, os\n    from urllib.parse import quote\n\
-          \    import requests\n\n    def _account() -> str:\n        v = storage_account\
-          \ or os.environ.get(\"AZURE_STORAGE_ACCOUNT\", \"\")\n        if not v:\n\
-          \            raise EnvironmentError(\"AZURE_STORAGE_ACCOUNT is not set\"\
-          )\n        return v\n\n    def _key() -> str:\n        v = storage_key or\
-          \ os.environ.get(\"AZURE_STORAGE_KEY\", \"\")\n        if not v:\n     \
-          \       raise EnvironmentError(\"AZURE_STORAGE_KEY is not set\")\n     \
-          \   return v\n\n    def _sign(s: str) -> str:\n        raw = base64.b64decode(_key())\n\
-          \        return base64.b64encode(\n            hmac.new(raw, s.encode(\"\
-          utf-8\"), hashlib.sha256).digest()\n        ).decode()\n\n    def _build_headers(method,\
-          \ container, blob=None, extra=None, qp=None, clen=\"\"):\n        account\
-          \ = _account()\n        utc = datetime.datetime.utcnow().strftime(\"%a,\
-          \ %d %b %Y %H:%M:%S GMT\")\n        hdrs = {\"x-ms-date\": utc, \"x-ms-version\"\
-          : \"2025-11-05\"}\n        if extra:\n            hdrs.update(extra)\n \
-          \       ms = sorted((k.lower(), v) for k, v in hdrs.items() if k.lower().startswith(\"\
-          x-ms-\"))\n        canon_hdrs = \"\".join(f\"{k}:{v}\\n\" for k, v in ms)\n\
-          \        resource = f\"/{account}/{container}\"\n        if blob:\n    \
-          \        resource += f\"/{blob}\"\n        if qp:\n            for k in\
-          \ sorted(qp):\n                resource += f\"\\n{k}:{qp[k]}\"\n       \
-          \ sts = (\n            f\"{method}\\n\\n\\n{clen}\\n\"\n            f\"\
-          {hdrs.get('Content-MD5','')}\\n{hdrs.get('Content-Type','')}\\n\"\n    \
-          \        f\"\\n\\n\\n\\n\\n\\n{canon_hdrs}{resource}\"\n        )\n    \
-          \    hdrs[\"Authorization\"] = f\"SharedKey {account}:{_sign(sts)}\"\n \
-          \       return hdrs\n\n    account = _account()\n    url = f\"https://{account}.blob.core.windows.net/{container_name}/{quote(blob_name,\
-          \ safe='/')}\"\n    headers = _build_headers(\"DELETE\", container_name,\
-          \ blob=blob_name)\n\n    print(f\"[INFO] Deleting '{blob_name}' from '{container_name}'\"\
-          )\n    resp = requests.delete(url, headers=headers)\n    if not resp.ok:\n\
-          \        print(f\"[ERROR] delete_blob failed: {resp.status_code} {resp.text}\"\
-          )\n        resp.raise_for_status()\n\n    print(f\"[INFO] Delete complete:\
-          \ '{blob_name}'\")\n\n"
-        image: python:3.11-slim
     exec-detect-scanned-pdf-op:
       container:
         args:
@@ -526,7 +423,7 @@ deploymentSpec:
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
           \ python3 -m pip install --quiet --no-warn-script-location 'pypdf>=4.0.0'\
-          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -540,11 +437,13 @@ deploymentSpec:
 
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef detect_scanned_pdf_op(\n    input_file: Input[Artifact],\n  \
-          \  chars_per_page_threshold: int = _CHARS_PER_PAGE_THRESHOLD,\n) -> bool:\n\
-          \    \"\"\"\n    Detect whether a PDF is a scanned document that requires\
-          \ OCR.\n\n    A PDF is classified as scanned when the average number of\
-          \ extractable\n    characters per page falls below *chars_per_page_threshold*,\
+          \ *\n\ndef detect_scanned_pdf_op(\n    input_file: Input[Artifact],\n\n\
+          \    # Minimum average characters per page to consider a PDF digitally-born\
+          \ (not scanned).\n    # Pages with fewer characters than this threshold\
+          \ are treated as image-only pages.\n    chars_per_page_threshold: int =\
+          \ 50,\n) -> bool:\n    \"\"\"\n    Detect whether a PDF is a scanned document\
+          \ that requires OCR.\n\n    A PDF is classified as scanned when the average\
+          \ number of extractable\n    characters per page falls below *chars_per_page_threshold*,\
           \ which\n    indicates that the pages contain images rather than embedded\
           \ text.\n\n    Parameters\n    ----------\n    input_file              :\
           \ PDF artifact to inspect\n    chars_per_page_threshold: avg chars/page\
@@ -577,7 +476,7 @@ deploymentSpec:
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
           \ python3 -m pip install --quiet --no-warn-script-location 'requests'  &&\
-          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -647,7 +546,7 @@ deploymentSpec:
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
           \ python3 -m pip install --quiet --no-warn-script-location 'requests'  &&\
-          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -768,7 +667,7 @@ deploymentSpec:
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
           \ python3 -m pip install --quiet --no-warn-script-location 'requests'  &&\
-          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -840,7 +739,7 @@ deploymentSpec:
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
           \ python3 -m pip install --quiet --no-warn-script-location 'requests'  &&\
-          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -915,9 +814,9 @@ pipelineInfo:
 
     3. Run Docling (GPU if scanned, CPU otherwise) to convert it.
 
-    4. Upload the original file to *output_container*.
+    4. Upload all Docling output files to *output_container* under the same prefix.
 
-    5. Upload all Docling output files to *output_container* under the same prefix.
+    5. Upload the original file to *output_container*.
 
     6. Delete the original blob from *input_container*.'
   name: azure-docling-ingestion-pipeline
@@ -986,4 +885,4 @@ root:
         isOptional: true
         parameterType: STRING
 schemaVersion: 2.1.0
-sdkVersion: kfp-2.14.6
+sdkVersion: kfp-2.16.0

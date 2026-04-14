@@ -25,8 +25,8 @@ def azure_docling_pipeline(
       1. Download the blob.
       2. Detect whether the PDF is a scanned document.
       3. Run Docling (GPU if scanned, CPU otherwise) to convert it.
-      4. Upload the original file to *output_container*.
-      5. Upload all Docling output files to *output_container* under the same prefix.
+      4. Upload all Docling output files to *output_container* under the same prefix.
+      5. Upload the original file to *output_container*.
       6. Delete the original blob from *input_container*.
     """
     
@@ -48,13 +48,13 @@ def azure_docling_pipeline(
             storage_account=storage_account,
             storage_key=storage_key,
         )
-        download_task.set_caching_options(enable_caching=True)
+        download_task.set_caching_options(enable_caching=False)
 
         # Step 2: Detect whether the PDF is a scanned document
         detect_task = detect_scanned_pdf_op(
             input_file=download_task.outputs["output_file"],
         )
-        detect_task.set_caching_options(enable_caching=True)
+        detect_task.set_caching_options(enable_caching=False)
 
         # Step 3: Run Docling — GPU if scanned, CPU otherwise
         with dsl.If(detect_task.output == True):
@@ -66,7 +66,7 @@ def azure_docling_pipeline(
             gpu_task.add_node_selector_constraint('nvidia.com/gpu')
             gpu_task.set_accelerator_type('nvidia.com/gpu')
             gpu_task.set_accelerator_limit(1)
-            gpu_task.set_caching_options(enable_caching=True)
+            gpu_task.set_caching_options(enable_caching=False)
 
         with dsl.Else():
             cpu_task = run_docling_step_with_cpu(
@@ -74,24 +74,14 @@ def azure_docling_pipeline(
                 docling_batch_size=docling_batch_size,
             )
             cpu_task.set_cpu_limit('10')
-            cpu_task.set_caching_options(enable_caching=True)
+            cpu_task.set_caching_options(enable_caching=False)
 
         docling_artifacts = dsl.OneOf(
             gpu_task.outputs["generated_artifacts_path"],
             cpu_task.outputs["generated_artifacts_path"],
         )
 
-        # Step 4: Upload the original file to the output container
-        upload_original_task = upload_blob_op(
-            container_name=output_container,
-            blob_name=blob_name,
-            input_file=download_task.outputs["output_file"],
-            storage_account=storage_account,
-            storage_key=storage_key,
-        )
-        upload_original_task.set_caching_options(enable_caching=True)
-
-        # Step 5: Upload all Docling output files to the output container
+        # Step 4: Upload all Docling output files to the output container
         upload_docling_task = upload_directory_op(
             container_name=output_container,
             blob_prefix=blob_name,
@@ -99,14 +89,25 @@ def azure_docling_pipeline(
             storage_account=storage_account,
             storage_key=storage_key,
         )
-        upload_docling_task.set_caching_options(enable_caching=True)
-
-        # Step 6: Delete the original blob from the input container (after both uploads)
-        delete_task = delete_blob_op(
-            container_name=input_container,
+        upload_docling_task.set_caching_options(enable_caching=False)
+        
+        # Step 5: Upload the original file to the output container
+        upload_original_task = upload_blob_op(
+            container_name=output_container,
             blob_name=blob_name,
+            input_file=download_task.outputs["output_file"],
             storage_account=storage_account,
             storage_key=storage_key,
         )
-        #delete_task.after(upload_original_task, upload_docling_task)
-        delete_task.set_caching_options(enable_caching=True)
+        upload_original_task.after(upload_docling_task)
+        upload_original_task.set_caching_options(enable_caching=False)
+
+        # Step 6: Delete the original blob from the input container (after both uploads)
+        #delete_task = delete_blob_op(
+        #    container_name=input_container,
+        #    blob_name=blob_name,
+        #    storage_account=storage_account,
+        #    storage_key=storage_key,
+        #)
+        #delete_task.after(upload_original_task)
+        #delete_task.set_caching_options(enable_caching=False)
