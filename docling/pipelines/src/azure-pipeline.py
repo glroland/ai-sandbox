@@ -9,6 +9,7 @@ upload_blob_op = components.load_component_from_file('components/upload_blob.yam
 upload_directory_op = components.load_component_from_file('components/upload_directory.yaml')
 delete_blob_op = components.load_component_from_file('components/delete_blob.yaml')
 download_input_file_step = components.load_component_from_file('components/download_input_file.yaml')
+detect_scanned_pdf_op = components.load_component_from_file('components/detect_scanned_pdf.yaml')
 
 @dsl.pipeline(name=PIPELINE_NAME)
 def azure_docling_pipeline(
