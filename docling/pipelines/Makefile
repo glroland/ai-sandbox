@@ -8,6 +8,7 @@ install:
 	pip install -r requirements.txt
 
 compile:
+	cd src/components && $(KFP) dsl compile --py detect_scanned_pdf.py --output detect_scanned_pdf.yaml
 	cd src/components && $(KFP) dsl compile --py delete_blob.py --output delete_blob.yaml
 	cd src/components && $(KFP) dsl compile --py download_blob.py --output download_blob.yaml
 	cd src/components && $(KFP) dsl compile --py download_input_file.py --output download_input_file.yaml
