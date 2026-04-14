@@ -2,10 +2,11 @@
 # Name: azure-docling-ingestion-pipeline
 # Description: For each blob in *input_container*:
 #              1. Download the blob.
-#              2. Run Docling (GPU) to convert it.
-#              3. Upload the original file to *output_container*.
-#              4. Upload all Docling output files to *output_container* under the same prefix.
-#              5. Delete the original blob from *input_container*.
+#              2. Detect whether the PDF is a scanned document.
+#              3. Run Docling (GPU if scanned, CPU otherwise) to convert it.
+#              4. Upload the original file to *output_container*.
+#              5. Upload all Docling output files to *output_container* under the same prefix.
+#              6. Delete the original blob from *input_container*.
 # Inputs:
 #    docling_batch_size: str [Default: '10']
 #    input_container: str
@@ -13,6 +14,148 @@
 #    storage_account: str [Default: '']
 #    storage_key: str [Default: '']
 components:
+  comp-condition-3:
+    dag:
+      outputs:
+        artifacts:
+          pipelinechannel--run-docling-step-with-gpu-generated_artifacts_path:
+            artifactSelectors:
+            - outputArtifactKey: generated_artifacts_path
+              producerSubtask: run-docling-step-with-gpu
+      tasks:
+        run-docling-step-with-gpu:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-run-docling-step-with-gpu
+          inputs:
+            artifacts:
+              source_document_path:
+                componentInputArtifact: pipelinechannel--download-blob-op-output_file
+            parameters:
+              docling_batch_size:
+                componentInputParameter: pipelinechannel--docling_batch_size
+          taskInfo:
+            name: run-docling-step-with-gpu
+    inputDefinitions:
+      artifacts:
+        pipelinechannel--download-blob-op-output_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        pipelinechannel--detect-scanned-pdf-op-Output:
+          parameterType: BOOLEAN
+        pipelinechannel--docling_batch_size:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        pipelinechannel--run-docling-step-with-gpu-generated_artifacts_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-condition-4:
+    dag:
+      outputs:
+        artifacts:
+          pipelinechannel--run-docling-step-with-cpu-generated_artifacts_path:
+            artifactSelectors:
+            - outputArtifactKey: generated_artifacts_path
+              producerSubtask: run-docling-step-with-cpu
+      tasks:
+        run-docling-step-with-cpu:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-run-docling-step-with-cpu
+          inputs:
+            artifacts:
+              source_document_path:
+                componentInputArtifact: pipelinechannel--download-blob-op-output_file
+            parameters:
+              docling_batch_size:
+                componentInputParameter: pipelinechannel--docling_batch_size
+          taskInfo:
+            name: run-docling-step-with-cpu
+    inputDefinitions:
+      artifacts:
+        pipelinechannel--download-blob-op-output_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        pipelinechannel--detect-scanned-pdf-op-Output:
+          parameterType: BOOLEAN
+        pipelinechannel--docling_batch_size:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        pipelinechannel--run-docling-step-with-cpu-generated_artifacts_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-condition-branches-2:
+    dag:
+      outputs:
+        artifacts:
+          pipelinechannel--condition-branches-2-oneof-1:
+            artifactSelectors:
+            - outputArtifactKey: pipelinechannel--run-docling-step-with-gpu-generated_artifacts_path
+              producerSubtask: condition-3
+            - outputArtifactKey: pipelinechannel--run-docling-step-with-cpu-generated_artifacts_path
+              producerSubtask: condition-4
+      tasks:
+        condition-3:
+          componentRef:
+            name: comp-condition-3
+          inputs:
+            artifacts:
+              pipelinechannel--download-blob-op-output_file:
+                componentInputArtifact: pipelinechannel--download-blob-op-output_file
+            parameters:
+              pipelinechannel--detect-scanned-pdf-op-Output:
+                componentInputParameter: pipelinechannel--detect-scanned-pdf-op-Output
+              pipelinechannel--docling_batch_size:
+                componentInputParameter: pipelinechannel--docling_batch_size
+          taskInfo:
+            name: condition-3
+          triggerPolicy:
+            condition: inputs.parameter_values['pipelinechannel--detect-scanned-pdf-op-Output']
+              == true
+        condition-4:
+          componentRef:
+            name: comp-condition-4
+          inputs:
+            artifacts:
+              pipelinechannel--download-blob-op-output_file:
+                componentInputArtifact: pipelinechannel--download-blob-op-output_file
+            parameters:
+              pipelinechannel--detect-scanned-pdf-op-Output:
+                componentInputParameter: pipelinechannel--detect-scanned-pdf-op-Output
+              pipelinechannel--docling_batch_size:
+                componentInputParameter: pipelinechannel--docling_batch_size
+          taskInfo:
+            name: condition-4
+          triggerPolicy:
+            condition: '!(inputs.parameter_values[''pipelinechannel--detect-scanned-pdf-op-Output'']
+              == true)'
+    inputDefinitions:
+      artifacts:
+        pipelinechannel--download-blob-op-output_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        pipelinechannel--detect-scanned-pdf-op-Output:
+          parameterType: BOOLEAN
+        pipelinechannel--docling_batch_size:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        pipelinechannel--condition-branches-2-oneof-1:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
   comp-delete-blob-op:
     executorLabel: exec-delete-blob-op
     inputDefinitions:
@@ -29,6 +172,23 @@ components:
           defaultValue: ''
           isOptional: true
           parameterType: STRING
+  comp-detect-scanned-pdf-op:
+    executorLabel: exec-detect-scanned-pdf-op
+    inputDefinitions:
+      artifacts:
+        input_file:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+      parameters:
+        chars_per_page_threshold:
+          defaultValue: 50.0
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: BOOLEAN
   comp-download-blob-op:
     executorLabel: exec-download-blob-op
     inputDefinitions:
@@ -54,6 +214,27 @@ components:
   comp-for-loop-1:
     dag:
       tasks:
+        condition-branches-2:
+          componentRef:
+            name: comp-condition-branches-2
+          dependentTasks:
+          - detect-scanned-pdf-op
+          - download-blob-op
+          inputs:
+            artifacts:
+              pipelinechannel--download-blob-op-output_file:
+                taskOutputArtifact:
+                  outputArtifactKey: output_file
+                  producerTask: download-blob-op
+            parameters:
+              pipelinechannel--detect-scanned-pdf-op-Output:
+                taskOutputParameter:
+                  outputParameterKey: Output
+                  producerTask: detect-scanned-pdf-op
+              pipelinechannel--docling_batch_size:
+                componentInputParameter: pipelinechannel--docling_batch_size
+          taskInfo:
+            name: condition-branches-2
         delete-blob-op:
           cachingOptions:
             enableCache: true
@@ -71,6 +252,21 @@ components:
                 componentInputParameter: pipelinechannel--storage_key
           taskInfo:
             name: delete-blob-op
+        detect-scanned-pdf-op:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-detect-scanned-pdf-op
+          dependentTasks:
+          - download-blob-op
+          inputs:
+            artifacts:
+              input_file:
+                taskOutputArtifact:
+                  outputArtifactKey: output_file
+                  producerTask: download-blob-op
+          taskInfo:
+            name: detect-scanned-pdf-op
         download-blob-op:
           cachingOptions:
             enableCache: true
@@ -88,24 +284,6 @@ components:
                 componentInputParameter: pipelinechannel--storage_key
           taskInfo:
             name: download-blob-op
-        run-docling-step-with-gpu:
-          cachingOptions:
-            enableCache: true
-          componentRef:
-            name: comp-run-docling-step-with-gpu
-          dependentTasks:
-          - download-blob-op
-          inputs:
-            artifacts:
-              source_document_path:
-                taskOutputArtifact:
-                  outputArtifactKey: output_file
-                  producerTask: download-blob-op
-            parameters:
-              docling_batch_size:
-                componentInputParameter: pipelinechannel--docling_batch_size
-          taskInfo:
-            name: run-docling-step-with-gpu
         upload-blob-op:
           cachingOptions:
             enableCache: true
@@ -136,13 +314,13 @@ components:
           componentRef:
             name: comp-upload-directory-op
           dependentTasks:
-          - run-docling-step-with-gpu
+          - condition-branches-2
           inputs:
             artifacts:
               input_dir:
                 taskOutputArtifact:
-                  outputArtifactKey: generated_artifacts_path
-                  producerTask: run-docling-step-with-gpu
+                  outputArtifactKey: pipelinechannel--condition-branches-2-oneof-1
+                  producerTask: condition-branches-2
             parameters:
               blob_prefix:
                 componentInputParameter: pipelinechannel--list-blobs-op-Output-loop-item
@@ -188,6 +366,25 @@ components:
       parameters:
         Output:
           parameterType: LIST
+  comp-run-docling-step-with-cpu:
+    executorLabel: exec-run-docling-step-with-cpu
+    inputDefinitions:
+      artifacts:
+        source_document_path:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+      parameters:
+        docling_batch_size:
+          defaultValue: '4'
+          isOptional: true
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        generated_artifacts_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
   comp-run-docling-step-with-gpu:
     executorLabel: exec-run-docling-step-with-gpu
     inputDefinitions:
@@ -315,6 +512,57 @@ deploymentSpec:
           \        print(f\"[ERROR] delete_blob failed: {resp.status_code} {resp.text}\"\
           )\n        resp.raise_for_status()\n\n    print(f\"[INFO] Delete complete:\
           \ '{blob_name}'\")\n\n"
+        image: python:3.11-slim
+    exec-detect-scanned-pdf-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - detect_scanned_pdf_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pypdf>=4.0.0'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef detect_scanned_pdf_op(\n    input_file: Input[Artifact],\n  \
+          \  chars_per_page_threshold: int = _CHARS_PER_PAGE_THRESHOLD,\n) -> bool:\n\
+          \    \"\"\"\n    Detect whether a PDF is a scanned document that requires\
+          \ OCR.\n\n    A PDF is classified as scanned when the average number of\
+          \ extractable\n    characters per page falls below *chars_per_page_threshold*,\
+          \ which\n    indicates that the pages contain images rather than embedded\
+          \ text.\n\n    Parameters\n    ----------\n    input_file              :\
+          \ PDF artifact to inspect\n    chars_per_page_threshold: avg chars/page\
+          \ below which the doc is\n                              considered scanned\
+          \ (default 50)\n\n    Returns\n    -------\n    bool\n        True  - scanned\
+          \ document (OCR required)\n        False - digitally-born PDF (OCR not required)\n\
+          \    \"\"\"\n    from pypdf import PdfReader\n\n    reader = PdfReader(input_file.path)\n\
+          \    num_pages = len(reader.pages)\n\n    if num_pages == 0:\n        print(\"\
+          [WARN] PDF has no pages; treating as scanned.\")\n        return True\n\n\
+          \    total_chars = 0\n    for i, page in enumerate(reader.pages):\n    \
+          \    text = page.extract_text() or \"\"\n        page_chars = len(text.strip())\n\
+          \        total_chars += page_chars\n        print(f\"[INFO] Page {i + 1}/{num_pages}:\
+          \ {page_chars} chars extracted\")\n\n    avg_chars = total_chars / num_pages\n\
+          \    is_scanned = avg_chars < chars_per_page_threshold\n\n    print(\n \
+          \       f\"[INFO] Total pages: {num_pages} | \"\n        f\"Total chars:\
+          \ {total_chars} | \"\n        f\"Avg chars/page: {avg_chars:.1f} | \"\n\
+          \        f\"Threshold: {chars_per_page_threshold} | \"\n        f\"Scanned:\
+          \ {is_scanned}\"\n    )\n    return is_scanned\n\n"
         image: python:3.11-slim
     exec-download-blob-op:
       container:
@@ -452,6 +700,30 @@ deploymentSpec:
           \    names = [n.find(\"Name\").text for n in root.iter(\"Blob\")]\n    print(f\"\
           [INFO] Found {len(names)} blob(s)\")\n    return names\n\n"
         image: python:3.11-slim
+    exec-run-docling-step-with-cpu:
+      container:
+        args:
+        - -v
+        - --device
+        - cpu
+        - --from
+        - pdf
+        - --to
+        - md
+        - --image-export-mode
+        - referenced
+        - --no-ocr
+        - --page-batch-size
+        - '{{$.inputs.parameters[''docling_batch_size'']}}'
+        - --output
+        - '{{$.outputs.artifacts[''generated_artifacts_path''].path}}'
+        - '{{$.inputs.artifacts[''source_document_path''].path}}'
+        command:
+        - docling
+        image: quay.io/bball/docling-rapidocr-pipeline:1.0
+        resources:
+          cpuLimit: 10.0
+          resourceCpuLimit: '10'
     exec-run-docling-step-with-gpu:
       container:
         args:
@@ -639,13 +911,15 @@ pipelineInfo:
 
     1. Download the blob.
 
-    2. Run Docling (GPU) to convert it.
+    2. Detect whether the PDF is a scanned document.
 
-    3. Upload the original file to *output_container*.
+    3. Run Docling (GPU if scanned, CPU otherwise) to convert it.
 
-    4. Upload all Docling output files to *output_container* under the same prefix.
+    4. Upload the original file to *output_container*.
 
-    5. Delete the original blob from *input_container*.'
+    5. Upload all Docling output files to *output_container* under the same prefix.
+
+    6. Delete the original blob from *input_container*.'
   name: azure-docling-ingestion-pipeline
 root:
   dag:

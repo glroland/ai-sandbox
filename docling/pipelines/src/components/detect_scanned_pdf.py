@@ -30,8 +30,8 @@ def detect_scanned_pdf_op(
     Returns
     -------
     bool
-        True  → scanned document (OCR required)
-        False → digitally-born PDF (OCR not required)
+        True  - scanned document (OCR required)
+        False - digitally-born PDF (OCR not required)
     """
     from pypdf import PdfReader
 

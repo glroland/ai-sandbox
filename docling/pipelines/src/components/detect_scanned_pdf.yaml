@@ -66,21 +66,20 @@ deploymentSpec:
           \ text.\n\n    Parameters\n    ----------\n    input_file              :\
           \ PDF artifact to inspect\n    chars_per_page_threshold: avg chars/page\
           \ below which the doc is\n                              considered scanned\
-          \ (default 50)\n\n    Returns\n    -------\n    bool\n        True  \u2192\
-          \ scanned document (OCR required)\n        False \u2192 digitally-born PDF\
-          \ (OCR not required)\n    \"\"\"\n    from pypdf import PdfReader\n\n  \
-          \  reader = PdfReader(input_file.path)\n    num_pages = len(reader.pages)\n\
-          \n    if num_pages == 0:\n        print(\"[WARN] PDF has no pages; treating\
-          \ as scanned.\")\n        return True\n\n    total_chars = 0\n    for i,\
-          \ page in enumerate(reader.pages):\n        text = page.extract_text() or\
-          \ \"\"\n        page_chars = len(text.strip())\n        total_chars += page_chars\n\
-          \        print(f\"[INFO] Page {i + 1}/{num_pages}: {page_chars} chars extracted\"\
-          )\n\n    avg_chars = total_chars / num_pages\n    is_scanned = avg_chars\
-          \ < chars_per_page_threshold\n\n    print(\n        f\"[INFO] Total pages:\
-          \ {num_pages} | \"\n        f\"Total chars: {total_chars} | \"\n       \
-          \ f\"Avg chars/page: {avg_chars:.1f} | \"\n        f\"Threshold: {chars_per_page_threshold}\
-          \ | \"\n        f\"Scanned: {is_scanned}\"\n    )\n    return is_scanned\n\
-          \n"
+          \ (default 50)\n\n    Returns\n    -------\n    bool\n        True  - scanned\
+          \ document (OCR required)\n        False - digitally-born PDF (OCR not required)\n\
+          \    \"\"\"\n    from pypdf import PdfReader\n\n    reader = PdfReader(input_file.path)\n\
+          \    num_pages = len(reader.pages)\n\n    if num_pages == 0:\n        print(\"\
+          [WARN] PDF has no pages; treating as scanned.\")\n        return True\n\n\
+          \    total_chars = 0\n    for i, page in enumerate(reader.pages):\n    \
+          \    text = page.extract_text() or \"\"\n        page_chars = len(text.strip())\n\
+          \        total_chars += page_chars\n        print(f\"[INFO] Page {i + 1}/{num_pages}:\
+          \ {page_chars} chars extracted\")\n\n    avg_chars = total_chars / num_pages\n\
+          \    is_scanned = avg_chars < chars_per_page_threshold\n\n    print(\n \
+          \       f\"[INFO] Total pages: {num_pages} | \"\n        f\"Total chars:\
+          \ {total_chars} | \"\n        f\"Avg chars/page: {avg_chars:.1f} | \"\n\
+          \        f\"Threshold: {chars_per_page_threshold} | \"\n        f\"Scanned:\
+          \ {is_scanned}\"\n    )\n    return is_scanned\n\n"
         image: python:3.11-slim
 pipelineInfo:
   name: detect-scanned-pdf-op
