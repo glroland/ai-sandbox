@@ -50,7 +50,7 @@ def download_blob_op(
     def _build_headers(method, container, blob=None, extra=None, qp=None, clen=""):
         account = _account()
         utc = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
-        hdrs = {"x-ms-date": utc, "x-ms-version": "2020-10-02"}
+        hdrs = {"x-ms-date": utc, "x-ms-version": "2025-11-05"}
         if extra:
             hdrs.update(extra)
         ms = sorted((k.lower(), v) for k, v in hdrs.items() if k.lower().startswith("x-ms-"))
@@ -69,6 +69,8 @@ def download_blob_op(
         hdrs["Authorization"] = f"SharedKey {account}:{_sign(sts)}"
         return hdrs
 
+    print(f"[INFO] Downloading File -> {output_file.path}")
+
     account = _account()
     url = f"https://{account}.blob.core.windows.net/{container_name}/{quote(blob_name, safe='/')}"
     headers = _build_headers("GET", container_name, blob=blob_name)
@@ -83,4 +85,4 @@ def download_blob_op(
         for chunk in resp.iter_content(chunk_size=65536):
             fh.write(chunk)
 
-    print(f"[INFO] Download complete → {output_file.path}")
+    print(f"[INFO] Download complete -> {output_file.path}")

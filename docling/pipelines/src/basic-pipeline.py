@@ -7,7 +7,7 @@ PIPELINE_NAME = "Docling Ingestion Pipeline"
 
 @dsl.pipeline(name=PIPELINE_NAME)
 def simple_dsl_pipeline(source_document_url: str,
-                        docling_batch_size: int = 10):
+                        docling_batch_size: str = "10"):
     # Step 1: Download the source document from URL
     download_task = download_input_file_step(source_document_url=source_document_url)
 

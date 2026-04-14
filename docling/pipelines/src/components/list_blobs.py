@@ -40,11 +40,11 @@ def list_blobs_op(
         return base64.b64encode(
             hmac.new(raw, s.encode("utf-8"), hashlib.sha256).digest()
         ).decode()
-
+    
     def _build_headers(method, container, blob=None, extra=None, qp=None, clen=""):
         account = _account()
         utc = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
-        hdrs = {"x-ms-date": utc, "x-ms-version": "2020-10-02"}
+        hdrs = {"x-ms-date": utc, "x-ms-version": "2025-11-05"}
         if extra:
             hdrs.update(extra)
         ms = sorted((k.lower(), v) for k, v in hdrs.items() if k.lower().startswith("x-ms-"))
