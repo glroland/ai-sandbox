@@ -1,0 +1,94 @@
+# PIPELINE DEFINITION
+# Name: run-docling-step-with-cpu
+# Inputs:
+#    docling_batch_size: str [Default: '4']
+#    source_document_path: system.Artifact
+# Outputs:
+#    generated_artifacts_path: system.Dataset
+components:
+  comp-run-docling-step-with-cpu:
+    executorLabel: exec-run-docling-step-with-cpu
+    inputDefinitions:
+      artifacts:
+        source_document_path:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+      parameters:
+        docling_batch_size:
+          defaultValue: '4'
+          isOptional: true
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        generated_artifacts_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-run-docling-step-with-cpu:
+      container:
+        args:
+        - -v
+        - --device
+        - cpu
+        - --from
+        - pdf
+        - --to
+        - md
+        - --image-export-mode
+        - referenced
+        - --no-ocr
+        - --page-batch-size
+        - '{{$.inputs.parameters[''docling_batch_size'']}}'
+        - --output
+        - '{{$.outputs.artifacts[''generated_artifacts_path''].path}}'
+        - '{{$.inputs.artifacts[''source_document_path''].path}}'
+        command:
+        - docling
+        image: quay.io/bball/docling-rapidocr-pipeline:1.0
+pipelineInfo:
+  name: run-docling-step-with-cpu
+root:
+  dag:
+    outputs:
+      artifacts:
+        generated_artifacts_path:
+          artifactSelectors:
+          - outputArtifactKey: generated_artifacts_path
+            producerSubtask: run-docling-step-with-cpu
+    tasks:
+      run-docling-step-with-cpu:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-run-docling-step-with-cpu
+        inputs:
+          artifacts:
+            source_document_path:
+              componentInputArtifact: source_document_path
+          parameters:
+            docling_batch_size:
+              componentInputParameter: docling_batch_size
+        taskInfo:
+          name: run-docling-step-with-cpu
+  inputDefinitions:
+    artifacts:
+      source_document_path:
+        artifactType:
+          schemaTitle: system.Artifact
+          schemaVersion: 0.0.1
+    parameters:
+      docling_batch_size:
+        defaultValue: '4'
+        isOptional: true
+        parameterType: STRING
+  outputDefinitions:
+    artifacts:
+      generated_artifacts_path:
+        artifactType:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.14.6

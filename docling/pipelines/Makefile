@@ -14,6 +14,7 @@ compile:
 	cd src/components && $(KFP) dsl compile --py download_input_file.py --output download_input_file.yaml
 	cd src/components && $(KFP) dsl compile --py list_blobs.py --output list_blobs.yaml
 	cd src/components && $(KFP) dsl compile --py run_docling_gpu.py --output run_docling_gpu.yaml
+	cd src/components && $(KFP) dsl compile --py run_docling_cpu.py --output run_docling_cpu.yaml
 	cd src/components && $(KFP) dsl compile --py upload_blob.py --output upload_blob.yaml
 	cd src/components && $(KFP) dsl compile --py upload_directory.py --output upload_directory.yaml
 	cd src && $(KFP) dsl compile --py basic-pipeline.py --output basic-pipeline.yaml

@@ -5,6 +5,7 @@ PIPELINE_NAME = "Azure Docling Ingestion Pipeline"
 list_blobs_op = components.load_component_from_file('components/list_blobs.yaml')
 download_blob_op = components.load_component_from_file('components/download_blob.yaml')
 run_docling_step_with_gpu = components.load_component_from_file('components/run_docling_gpu.yaml')
+run_docling_step_with_cpu = components.load_component_from_file('components/run_docling_cpu.yaml')
 upload_blob_op = components.load_component_from_file('components/upload_blob.yaml')
 upload_directory_op = components.load_component_from_file('components/upload_directory.yaml')
 delete_blob_op = components.load_component_from_file('components/delete_blob.yaml')
