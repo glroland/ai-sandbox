@@ -9,3 +9,9 @@ spec:
         - image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           ports:
             - containerPort: {{ .Values.kservice.port }}
+          env:
+            - name: AZURE_STORAGE_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: docling-azure-storage
+                  key: connection-string

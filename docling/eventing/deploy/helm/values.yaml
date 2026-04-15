@@ -1,6 +1,6 @@
 image:
   repository: registry.home.glroland.com/ai/docling-process-func
-  tag: "1a"
+  tag: "1b"
 
 kservice:
   name: docling-process
@@ -14,3 +14,6 @@ channel:
 trigger:
   name: docling-process-trigger
   broker: default
+
+azure:
+  storageConnectionString: ""

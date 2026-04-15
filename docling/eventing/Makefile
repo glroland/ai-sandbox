@@ -1,4 +1,4 @@
-IMAGE := registry.home.glroland.com/ai/docling-process-func:1a
+IMAGE := registry.home.glroland.com/ai/docling-process-func:1b
 
 PIP := $(if $(shell command -v uv 2>/dev/null),uv pip,pip)
 
