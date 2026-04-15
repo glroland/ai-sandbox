@@ -1,0 +1,12 @@
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: {{ .Values.trigger.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  broker: {{ .Values.trigger.broker }}
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: {{ .Values.kservice.name }}

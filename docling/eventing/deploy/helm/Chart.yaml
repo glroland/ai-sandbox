@@ -1,0 +1,6 @@
+apiVersion: v2
+name: docling-eventing
+description: Knative eventing pipeline for docling document processing
+type: application
+version: 0.1.0
+appVersion: "1a"

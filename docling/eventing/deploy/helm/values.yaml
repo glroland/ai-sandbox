@@ -1,0 +1,16 @@
+namespace: default
+
+image:
+  repository: registry.home.glroland.com/ai/docling-process-func
+  tag: "1a"
+
+kservice:
+  name: docling-process
+  port: 8080
+
+channel:
+  name: docling-process-output
+
+trigger:
+  name: docling-process-trigger
+  broker: default
