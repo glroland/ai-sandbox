@@ -2,4 +2,3 @@ apiVersion: messaging.knative.dev/v1
 kind: InMemoryChannel
 metadata:
   name: {{ .Values.channel.name }}
-  namespace: {{ .Values.namespace }}

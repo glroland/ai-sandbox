@@ -1,0 +1,13 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Values.channel.name }}
+spec:
+  to:
+    kind: Service
+    name: {{ .Values.channel.name }}-kn-channel
+  port:
+    targetPort: http
+  tls:
+    termination: {{ .Values.channel.route.tlsTermination }}
+    insecureEdgeTerminationPolicy: Redirect

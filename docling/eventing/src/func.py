@@ -4,8 +4,8 @@ from datetime import datetime
 
 import httpx
 import uvicorn
-from cloudevents.conversion import to_structured
-from cloudevents.http import CloudEvent, from_http
+from cloudevents.v1.conversion import to_structured
+from cloudevents.v1.http import CloudEvent, from_http
 from fastapi import FastAPI, Request, Response
 
 # Output channel URL — update this to match your cluster/namespace

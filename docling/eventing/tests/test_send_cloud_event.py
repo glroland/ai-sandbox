@@ -15,8 +15,8 @@ import uuid
 
 import httpx
 import pytest
-from cloudevents.conversion import to_structured
-from cloudevents.http import CloudEvent
+from cloudevents.v1.conversion import to_structured
+from cloudevents.v1.http import CloudEvent
 
 KSERVICE_NAME = os.environ.get("KSERVICE_NAME", "docling-process")
 NAMESPACE = os.environ.get("NAMESPACE", "sandbox")

@@ -1,5 +1,3 @@
-namespace: sandbox
-
 image:
   repository: registry.home.glroland.com/ai/docling-process-func
   tag: "1a"
@@ -10,6 +8,8 @@ kservice:
 
 channel:
   name: docling-process-output
+  route:
+    tlsTermination: edge
 
 trigger:
   name: docling-process-trigger
