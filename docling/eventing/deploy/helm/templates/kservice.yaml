@@ -10,6 +10,3 @@ spec:
         - image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           ports:
             - containerPort: {{ .Values.kservice.port }}
-          env:
-            - name: PORT
-              value: {{ .Values.kservice.port | quote }}
