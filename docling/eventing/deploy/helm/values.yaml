@@ -1,4 +1,4 @@
-namespace: default
+namespace: sandbox
 
 image:
   repository: registry.home.glroland.com/ai/docling-process-func

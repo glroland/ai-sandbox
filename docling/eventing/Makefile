@@ -13,6 +13,9 @@ deploy:
 	helm upgrade --install docling-eventing deploy/helm
 
 undeploy:
-	helm uninstall docling-eventing --ignore-not-found
+	helm uninstall docling-eventing
 
-.PHONY: install build push deploy undeploy
+test:
+	pytest tests/ -v
+
+.PHONY: install build push deploy undeploy test

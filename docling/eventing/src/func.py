@@ -9,7 +9,7 @@ from cloudevents.http import CloudEvent, from_http
 from fastapi import FastAPI, Request, Response
 
 # Output channel URL — update this to match your cluster/namespace
-OUTPUT_CHANNEL_URL = "http://hello-world-output.default.svc.cluster.local"
+OUTPUT_CHANNEL_URL = "http://hello-world-output.sandbox.svc.cluster.local"
 
 app = FastAPI()
 
