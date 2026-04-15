@@ -1,5 +1,4 @@
 IMAGE := registry.home.glroland.com/ai/docling-process-func:1a
-NAMESPACE := default
 
 install:
 	pip install -r requirements.txt
@@ -11,9 +10,9 @@ push:
 	podman push $(IMAGE)
 
 deploy:
-	helm upgrade --install docling-eventing deploy/helm --namespace $(NAMESPACE) --create-namespace
+	helm upgrade --install docling-eventing deploy/helm
 
 undeploy:
-	helm uninstall docling-eventing --namespace $(NAMESPACE) --ignore-not-found
+	helm uninstall docling-eventing --ignore-not-found
 
 .PHONY: install build push deploy undeploy
