@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export MODEL_NAME=all-minilm-l6-v2
+export MODEL_NAME=nomic-gpu
 
 export MODEL_HOST=$(oc get routes $MODEL_NAME -o jsonpath='{.spec.host}' -n sandbox)
 
