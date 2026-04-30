@@ -8,16 +8,16 @@ spec:
     containerSpec:
       env:
         - name: VLLM_URL
-          value: 'https://gpt-oss-20b-predictor.sandbox.svc.cluster.local:8443/v1'
+          value: 'https://gemma-4-predictor.sandbox.svc.cluster.local:8443/v1'
         - name: VLLM_TLS_VERIFY
           value: 'false'
         - name: VLLM_API_TOKEN
           valueFrom:
             secretKeyRef:
               key: token
-              name: default-name-gpt-oss-20b-sa
+              name: default-name-gemma-4-sa
         - name: INFERENCE_MODEL
-          value: gpt-oss-20b
+          value: gemma-4
         - name: ENABLE_SENTENCE_TRANSFORMERS
           value: 'true'
         - name: EMBEDDING_PROVIDER
@@ -63,7 +63,7 @@ spec:
       #  access_policy:
       #    - permit: 
       #        actions: [read]
-      #        resource: model::vllm-inference/gpt-oss-20b
+      #        resource: model::vllm-inference/gemma-4
       #      description: Allow all authenticated users to access Llama 3.2 model
     distribution:
       name: 'rh-dev'
