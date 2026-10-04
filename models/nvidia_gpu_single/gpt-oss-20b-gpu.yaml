@@ -10,7 +10,7 @@ metadata:
     openshift.io/display-name: vLLM NVIDIA GPU ServingRuntime for KServe
   labels:
     opendatahub.io/dashboard: "true"
-  name: gpt-oss-20b-1-gpu
+  name: gpt-oss-20b-gpu
 spec:
   annotations:
     opendatahub.io/kserve-runtime: vllm
@@ -46,7 +46,7 @@ metadata:
     opendatahub.io/hardware-profile-name: any-nvidia-gpu
     opendatahub.io/hardware-profile-namespace: redhat-ods-applications
     opendatahub.io/model-type: generative
-    openshift.io/display-name: gpt-oss-20b-1-gpu
+    openshift.io/display-name: gpt-oss-20b-gpu
     security.opendatahub.io/enable-auth: "false"
     serving.kserve.io/deploymentMode: Standard
     serving.kserve.io/stop: "false"
@@ -54,7 +54,7 @@ metadata:
     networking.kserve.io/visibility: exposed
     opendatahub.io/dashboard: "true"
     opendatahub.io/genai-asset: "true"
-  name: gpt-oss-20b-1-gpu
+  name: gpt-oss-20b-gpu
 spec:
   predictor:
     automountServiceAccountToken: false
@@ -80,7 +80,7 @@ spec:
           cpu: "4"
           memory: 8Gi
           nvidia.com/gpu: "1"
-      runtime: gpt-oss-20b-1-gpu
+      runtime: gpt-oss-20b-gpu
       storageUri: oci://registry.redhat.io/rhai/modelcar-gpt-oss-20b-essential:3.0
     nodeSelector:
       nvidia.com/gpu.present: "true"
