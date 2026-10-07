@@ -270,3 +270,36 @@ spec:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
   wildcardPolicy: None
+
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: gpt-oss-120b-dozer-metrics-dashboard
+  labels:
+    app.kubernetes.io/component: kserve
+    app.kubernetes.io/managed-by: odh-model-controller
+    app.kubernetes.io/name: odh-model-controller
+    app.kubernetes.io/part-of: odh-model-serving
+    opendatahub.io/managed: 'true'
+data:
+  metrics: "{\n        \"config\": [\n\t\t\t{\n\t\t\t\t\"title\": \"Requests per 5 minutes\",\n\t\t\t\t\"type\": \"REQUEST_COUNT\",\n\t\t\t\t\"queries\": [\n\t\t\t\t\t{\n\t\t\t\t\t\t\"title\": \"Number of successful incoming requests\",\n\t\t\t\t\t\t\"query\": \"round(sum(increase(vllm:request_success_total{namespace='models',model_name='gpt-oss-120b-dozer',finished_reason!~'error|abort'}[5m])))\"\n\t\t\t\t\t},\n\t\t\t\t\t{\n\t\t\t\t\t\t\"title\": \"Number of failed incoming requests\",\n\t\t\t\t\t\t\"query\": \"round(sum(increase(vllm:request_success_total{namespace='models',model_name='gpt-oss-120b-dozer',finished_reason=~'error|abort'}[5m])))\"\n\t\t\t\t\t}\n\t\t\t\t]\n\t\t\t},\n\t\t\t{\n\t\t\t\t\"title\": \"Average response time (ms)\",\n\t\t\t\t\"type\": \"MEAN_LATENCY\",\n\t\t\t\t\"queries\": [\n\t\t\t\t\t{\n\t\t\t\t\t\t\"title\": \"Average e2e latency\",\n\t\t\t\t\t\t\"query\": \"histogram_quantile(0.5, sum(rate(vllm:e2e_request_latency_seconds_bucket{namespace='models', model_name='gpt-oss-120b-dozer'}[1m])) by (le, model_name))\"\n\t\t\t\t\t}\n\t\t\t\t]\n\t\t\t},\n\t\t\t{\n\t\t\t\t\"title\": \"CPU utilization %\",\n\t\t\t\t\"type\": \"CPU_USAGE\",\n\t\t\t\t\"queries\": [\n\t\t\t\t\t{\n\t\t\t\t\t\t\"title\": \"CPU usage\",\n\t\t\t\t\t\t\"query\":  \"sum(pod:container_cpu_usage:sum{namespace='models', pod=~'gpt-oss-120b-dozer-predictor-.*'})/sum(kube_pod_resource_limit{resource='cpu', pod=~'gpt-oss-120b-dozer-predictor-.*', namespace='models'})\"\n\t\t\t\t\t}\n\t\t\t\t]\n\t\t\t},\n\t\t\t{\n\t\t\t\t\"title\": \"Memory utilization %\",\n\t\t\t\t\"type\": \"MEMORY_USAGE\",\n\t\t\t\t\"queries\": [\n\t\t\t\t\t{\n\t\t\t\t\t\t\"title\": \"Memory usage\",\n\t\t\t\t\t\t\"query\":  \"sum(container_memory_working_set_bytes{namespace='models', pod=~'gpt-oss-120b-dozer-predictor-.*'})/sum(kube_pod_resource_limit{resource='memory', pod=~'gpt-oss-120b-dozer-predictor-.*', namespace='models'})\"\n\t\t\t\t\t}\n\t\t\t\t]\n\t\t\t}\n\t\t]\n    }"
+  supported: 'true'
+
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: gpt-oss-120b-dozer-kube-rbac-proxy-sar-config
+  namespace: models
+immutable: true
+data:
+  config-file.yaml: |-
+    authorization:
+      resourceAttributes:
+        namespace: "models"
+        apiGroup: "serving.kserve.io"
+        apiVersion: "v1beta1"
+        resource: "inferenceservices"
+        name: "gpt-oss-120b-dozer"
+        verb: "get"
