@@ -1,0 +1,272 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  annotations:
+    internal.serving.kserve.io/storage-initializer-sourceuri: 'oci://registry.redhat.io/rhai/modelcar-gpt-oss-120b-essential:3.0'
+    serving.kserve.io/stop: 'false'
+    security.opendatahub.io/enable-auth: 'false'
+    deployment.kubernetes.io/revision: '1'
+    prometheus.io/port: '8080'
+    opendatahub.io/genai-use-case: chat
+    openshift.io/description: ''
+    openshift.io/display-name: gpt-oss-120b-dozer
+    serving.kserve.io/deploymentMode: Standard
+    prometheus.io/path: /metrics
+    opendatahub.io/kserve-runtime: vllm
+    service.beta.openshift.io/serving-cert-secret-name: gpt-oss-120b-dozer-predictor-serving-cert
+    opendatahub.io/model-type: generative
+  name: gpt-oss-120b-dozer-predictor
+  labels:
+    app: isvc.gpt-oss-120b-dozer-predictor
+    component: predictor
+    networking.kserve.io/visibility: exposed
+    opendatahub.io/dashboard: 'true'
+    opendatahub.io/genai-asset: 'true'
+    serving.kserve.io/inferenceservice: gpt-oss-120b-dozer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: isvc.gpt-oss-120b-dozer-predictor
+  template:
+    metadata:
+      name: gpt-oss-120b-dozer-predictor
+      namespace: models
+      creationTimestamp: null
+      labels:
+        app: isvc.gpt-oss-120b-dozer-predictor
+        component: predictor
+        networking.kserve.io/visibility: exposed
+        opendatahub.io/dashboard: 'true'
+        opendatahub.io/genai-asset: 'true'
+        serving.kserve.io/inferenceservice: gpt-oss-120b-dozer
+      annotations:
+        internal.serving.kserve.io/storage-initializer-sourceuri: 'oci://registry.redhat.io/rhai/modelcar-gpt-oss-120b-essential:3.0'
+        serving.kserve.io/stop: 'false'
+        security.opendatahub.io/enable-auth: 'false'
+        opendatahub.io/hardware-profile-resource-version: '271194'
+        prometheus.io/port: '8080'
+        opendatahub.io/genai-use-case: chat
+        openshift.io/description: ''
+        openshift.io/display-name: gpt-oss-120b-dozer
+        serving.kserve.io/deploymentMode: Standard
+        prometheus.io/path: /metrics
+        opendatahub.io/kserve-runtime: vllm
+        service.beta.openshift.io/serving-cert-secret-name: gpt-oss-120b-dozer-predictor-serving-cert
+        opendatahub.io/connections: secret-3g9urf
+        opendatahub.io/model-type: generative
+    spec:
+      nodeSelector:
+        feature.node.kubernetes.io/cpu-cpuid.AVX512VNNI: 'true'
+        feature.node.kubernetes.io/cpu-model.vendor_id: AMD
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      terminationGracePeriodSeconds: 30
+      securityContext: {}
+      containers:
+        - resources:
+            limits:
+              cpu: '60'
+              memory: 220Gi
+            requests:
+              cpu: '32'
+              memory: 192Gi
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          terminationMessagePath: /dev/termination-log
+          name: kserve-container
+          command:
+            - python
+            - '-m'
+            - vllm.entrypoints.openai.api_server
+          env:
+            - name: HF_HOME
+              value: /tmp/hf_home
+            - name: INFERENCE_SERVICE_NAME
+              value: gpt-oss-120b-dozer
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: proxy-tls
+              mountPath: /etc/tls/private
+          terminationMessagePolicy: File
+          image: 'registry.redhat.io/rhaii/vllm-cpu-rhel9@sha256:7a28b867955055a8836ea2a78e70b8bad63c1ee50e8a5f8dd95d1194f20ec489'
+          args:
+            - '--port=8080'
+            - '--model=/mnt/models'
+            - '--served-model-name=gpt-oss-120b-dozer'
+            - '--max-model-len=131072'
+            - '--enable-auto-tool-choice'
+            - '--tool-call-parser=openai'
+            - '--reasoning-parser=openai_gptoss'
+        - resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8643
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            timeoutSeconds: 1
+            periodSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          terminationMessagePath: /dev/termination-log
+          name: kube-rbac-proxy
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8643
+              scheme: HTTPS
+            initialDelaySeconds: 30
+            timeoutSeconds: 1
+            periodSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          ports:
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+            - name: proxy
+              containerPort: 8643
+              protocol: TCP
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: proxy-tls
+              mountPath: /etc/tls/private
+            - name: kube-rbac-proxy-sar-config
+              readOnly: true
+              mountPath: /etc/kube-rbac-proxy
+          terminationMessagePolicy: File
+          image: 'registry.redhat.io/rhoai/odh-kube-rbac-proxy-rhel9@sha256:b64105d53ab3f7d477652b2f29c90636fe272891cce71620ceadf0bf2eb3e323'
+          args:
+            - '--secure-listen-address=:8443'
+            - '--proxy-endpoints-port=8643'
+            - '--upstream=http://localhost:8080'
+            - '--auth-header-fields-enabled=true'
+            - '--tls-cert-file=/etc/tls/private/tls.crt'
+            - '--tls-private-key-file=/etc/tls/private/tls.key'
+            - '--config-file=/etc/kube-rbac-proxy/config-file.yaml'
+            - '--v=4'
+            - '--upstream-timeout=30000s'
+      automountServiceAccountToken: true
+      volumes:
+        - name: proxy-tls
+          secret:
+            secretName: gpt-oss-120b-dozer-predictor-serving-cert
+            defaultMode: 420
+        - name: kube-rbac-proxy-sar-config
+          configMap:
+            name: gpt-oss-120b-dozer-kube-rbac-proxy-sar-config
+            defaultMode: 420
+      dnsPolicy: ClusterFirst
+  strategy:
+    type: Recreate
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: gpt-oss-120b-dozer-metrics
+  namespace: models
+  labels:
+    monitoring.opendatahub.io/scrape: 'true'
+    name: gpt-oss-120b-dozer-metrics
+spec:
+  #clusterIP: 172.30.3.4
+  ipFamilies:
+    - IPv4
+  ports:
+    - name: gpt-oss-120b-dozer-metrics
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  internalTrafficPolicy: Cluster
+  #clusterIPs:
+  #  - 172.30.3.4
+  type: ClusterIP
+  ipFamilyPolicy: SingleStack
+  sessionAffinity: None
+  selector:
+    serving.kserve.io/inferenceservice: gpt-oss-120b-dozer
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  annotations:
+    internal.serving.kserve.io/storage-initializer-sourceuri: 'oci://registry.redhat.io/rhai/modelcar-gpt-oss-120b-essential:3.0'
+    serving.kserve.io/stop: 'false'
+    security.opendatahub.io/enable-auth: 'false'
+    prometheus.io/port: '8080'
+    opendatahub.io/genai-use-case: chat
+    openshift.io/description: ''
+    openshift.io/display-name: gpt-oss-120b-dozer
+    serving.kserve.io/deploymentMode: Standard
+    service.alpha.openshift.io/serving-cert-signed-by: openshift-service-serving-signer@1790989264
+    prometheus.io/path: /metrics
+    opendatahub.io/kserve-runtime: vllm
+    service.beta.openshift.io/serving-cert-secret-name: gpt-oss-120b-dozer-predictor-serving-cert
+    opendatahub.io/connections: secret-3g9urf
+    opendatahub.io/model-type: generative
+  name: gpt-oss-120b-dozer-predictor
+  labels:
+    app: isvc.gpt-oss-120b-dozer-predictor
+    component: predictor
+    networking.kserve.io/visibility: exposed
+    opendatahub.io/dashboard: 'true'
+    opendatahub.io/genai-asset: 'true'
+    serving.kserve.io/inferenceservice: gpt-oss-120b-dozer
+spec:
+  #clusterIP: 172.30.220.194
+  ipFamilies:
+    - IPv4
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+  internalTrafficPolicy: Cluster
+  #clusterIPs:
+  #  - 172.30.220.194
+  type: ClusterIP
+  ipFamilyPolicy: SingleStack
+  sessionAffinity: None
+  selector:
+    app: isvc.gpt-oss-120b-dozer-predictor
+
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  annotations:
+    haproxy.router.openshift.io/timeout: 30000s
+  name: gpt-oss-120b-dozer
+  labels:
+    inferenceservice-name: gpt-oss-120b-dozer
+spec:
+  #host: gpt-oss-120b-dozer-models.apps.ocp.s9ft5.sandbox1539.opentlc.com
+  to:
+    kind: Service
+    name: gpt-oss-120b-dozer-predictor
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
