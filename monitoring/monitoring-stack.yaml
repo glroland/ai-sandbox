@@ -22,6 +22,10 @@ spec:
   logLevel: debug
   prometheusConfig:
     enableOtlpHttpReceiver: true
+    persistentVolumeClaim:
+      resources:
+        requests:
+          storage: 5Gi
     replicas: 1
     thanosResources:
       limits:
