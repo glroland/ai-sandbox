@@ -28,15 +28,23 @@ spec:
       env:
         - name: HF_HOME
           value: /tmp/hf_home
-      image: registry.redhat.io/rhaii/vllm-cpu-rhel9@sha256:7a28b867955055a8836ea2a78e70b8bad63c1ee50e8a5f8dd95d1194f20ec489
+      image: registry.redhat.io/rhaii-fast/vllm-cpu-rhel9:3.6.0-fast.2-1791425550
       name: kserve-container
       ports:
         - containerPort: 8080
           protocol: TCP
+      volumeMounts:
+        - mountPath: /dev/shm
+          name: shm
   multiModel: false
   supportedModelFormats:
     - autoSelect: true
       name: vLLM
+  volumes:
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 512Mi
 ---
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
