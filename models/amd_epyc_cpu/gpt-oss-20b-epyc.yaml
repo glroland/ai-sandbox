@@ -88,7 +88,7 @@ spec:
           cpu: "32"
           memory: 192Gi
       runtime: gpt-oss-20b-epyc
-      storageUri: pvc://gpt-oss-20b-BF16-w8a8-llmcompressor
+      storageUri: pvc://gpt-oss-20b-bf16-w8a8-llmcompressor
     nodeSelector:
       feature.node.kubernetes.io/cpu-cpuid.AVX512VNNI: "true"
       feature.node.kubernetes.io/cpu-model.vendor_id: AMD
