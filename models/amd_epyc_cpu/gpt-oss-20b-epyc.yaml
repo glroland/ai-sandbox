@@ -1,0 +1,95 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  annotations:
+    opendatahub.io/apiProtocol: REST
+    opendatahub.io/runtime-version: v0.24.0
+    opendatahub.io/serving-runtime-scope: global
+    opendatahub.io/template-display-name: vLLM CPU (x86) ServingRuntime for KServe
+    opendatahub.io/template-name: vllm-cpu-x86-runtime-template
+    openshift.io/display-name: vLLM CPU (x86) ServingRuntime for KServe
+  labels:
+    opendatahub.io/dashboard: "true"
+  name: gpt-oss-20b-epyc
+spec:
+  annotations:
+    opendatahub.io/kserve-runtime: vllm
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8080"
+  containers:
+    - args:
+        - --port=8080
+        - --model=/mnt/models
+        - --served-model-name={{.Name}}
+      command:
+        - python
+        - -m
+        - vllm.entrypoints.openai.api_server
+      env:
+        - name: HF_HOME
+          value: /tmp/hf_home
+      image: registry.redhat.io/rhaii-fast/vllm-cpu-rhel9:3.6.0-fast.2-1791425550
+      name: kserve-container
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      volumeMounts:
+        - mountPath: /dev/shm
+          name: shm
+  multiModel: false
+  supportedModelFormats:
+    - autoSelect: true
+      name: vLLM
+  volumes:
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 512Mi
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    modelFormat: vLLM
+    opendatahub.io/genai-use-case: chat
+    opendatahub.io/hardware-profile-name: amd-epyc
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/model-type: generative
+    openshift.io/display-name: gpt-oss-20b-epyc
+    security.opendatahub.io/enable-auth: "false"
+    serving.kserve.io/deploymentMode: Standard
+    serving.kserve.io/stop: "false"
+  labels:
+    networking.kserve.io/visibility: exposed
+    opendatahub.io/dashboard: "true"
+    opendatahub.io/genai-asset: "true"
+  name: gpt-oss-20b-epyc
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    deploymentStrategy:
+      type: Recreate
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      args:
+        - --max-model-len=131072
+        - --enable-auto-tool-choice
+        - --tool-call-parser=openai
+        - --reasoning-parser=openai_gptoss
+      modelFormat:
+        name: vLLM
+      protocolVersion: v2
+      resources:
+        limits:
+          cpu: "60"
+          memory: 220Gi
+        requests:
+          cpu: "32"
+          memory: 192Gi
+      runtime: gpt-oss-20b-epyc
+      storageUri: pvc://gpt-oss-20b-BF16-w8a8-llmcompressor
+    nodeSelector:
+      feature.node.kubernetes.io/cpu-cpuid.AVX512VNNI: "true"
+      feature.node.kubernetes.io/cpu-model.vendor_id: AMD
+    timeout: 30000
