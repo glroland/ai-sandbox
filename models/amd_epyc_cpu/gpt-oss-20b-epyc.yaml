@@ -28,7 +28,7 @@ spec:
       env:
         - name: HF_HOME
           value: /tmp/hf_home
-      image: registry.redhat.io/rhaii-fast/vllm-cpu-rhel9@sha256:0506c3d627bb3b0a4badd8b7aaec3076f99afd654ec4b9e2681a44af10362955
+      image: registry.redhat.io/rhaii-fast/vllm-cpu-rhel9:3.6.0-fast.2-1791425550
       name: kserve-container
       ports:
         - containerPort: 8080
@@ -82,13 +82,13 @@ spec:
       protocolVersion: v2
       resources:
         limits:
-          cpu: "60"
-          memory: 220Gi
+          cpu: "32"
+          memory: 160Gi
         requests:
           cpu: "32"
-          memory: 192Gi
+          memory: 160Gi
       runtime: gpt-oss-20b-epyc
-      storageUri: pvc://gpt-oss-20b-wfp8-afp8-kvfp8
+      storageUri: pvc://gpt-oss-20b-bf16-w4a16-llmcompressor
     nodeSelector:
       feature.node.kubernetes.io/cpu-cpuid.AVX512VNNI: "true"
       feature.node.kubernetes.io/cpu-model.vendor_id: AMD
