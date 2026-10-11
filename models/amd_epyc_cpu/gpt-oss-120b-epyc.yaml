@@ -28,7 +28,7 @@ spec:
       env:
         - name: HF_HOME
           value: /tmp/hf_home
-      image: registry.redhat.io/rhaii/vllm-cpu-rhel9@sha256:7a28b867955055a8836ea2a78e70b8bad63c1ee50e8a5f8dd95d1194f20ec489
+      image: quay.io/redhat-ai-americas/vllm-cpu-rhel9-epyc-offline:20261010-2000
       name: kserve-container
       ports:
         - containerPort: 8080
