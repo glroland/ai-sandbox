@@ -15,7 +15,7 @@ metadata:
     opendatahub.io/genai-asset: 'true'
 spec:
   baseRefs:
-    - name: vllm-cpu-epyc-llm-template
+    - name: gpt-oss-120b-clone-config
   model:
     name: gpt-oss-120b-clone
     uri: 'oci://registry.redhat.io/rhai/modelcar-gpt-oss-120b-essential:3.0'
@@ -42,10 +42,10 @@ kind: LLMInferenceServiceConfig
 metadata:
   annotations:
     platform.opendatahub.io/instance.name: default-kserve
-    openshift.io/description: vLLM CPU (AMD EPYC) LLMInferenceServiceConfig for LLMInferenceService.
-    openshift.io/display-name: vLLM CPU [AMD EPYC]
+    openshift.io/description: vLLM CPU (AMD EPYC) LLMInferenceServiceConfig for the gpt-oss-120b-clone LLMInferenceService.
+    openshift.io/display-name: gpt-oss-120b-clone Config - vLLM CPU [AMD EPYC]
     serving.kserve.io/well-known-config: 'true'
-  name: vllm-cpu-epyc-llm-template
+  name: gpt-oss-120b-clone-config
   namespace: models
   labels:
     app.kubernetes.io/part-of: kserve
