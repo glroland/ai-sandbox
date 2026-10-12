@@ -3,20 +3,22 @@
 # first chat completion request. Without this, gpt-oss serving breaks on first use
 # in disconnected/air-gapped environments, even though the pod reports Ready.
 #
-# File, URL, cache path, and both hashes below were verified empirically against
-# this exact base image (see models/amd_epyc_cpu/gpt-oss-120b-epyc.yaml) by running
-# openai_harmony.load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS) inside a
-# live container and inspecting the resulting cache file. No env var is required:
-# tiktoken-rs's default cache dir is /tmp/tiktoken-rs-cache, keyed by
-# sha1(download_url).hexdigest() as the filename.
+# The file is baked into /opt/tiktoken and located via TIKTOKEN_ENCODINGS_BASE,
+# which openai-harmony reads as a directory containing o200k_base.tiktoken (no
+# download, no URL-hash filename). It must NOT live under /tmp, /home, or /mnt:
+# LLMInferenceService pods mount emptyDir volumes over those paths, hiding anything
+# the image put there (the previous /tmp/tiktoken-rs-cache approach broke this way).
+# The env var name was verified against openai-harmony 0.0.8 in this base image.
 FROM registry.redhat.io/rhaii/vllm-cpu-rhel9@sha256:7a28b867955055a8836ea2a78e70b8bad63c1ee50e8a5f8dd95d1194f20ec489
 
 USER root
 
-RUN mkdir -p /tmp/tiktoken-rs-cache && \
-    curl -fsSL -o /tmp/tiktoken-rs-cache/fb374d419588a4632f3f557e76b4b70aebbca790 \
+RUN mkdir -p /opt/tiktoken && \
+    curl -fsSL -o /opt/tiktoken/o200k_base.tiktoken \
       https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken && \
-    echo "446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d  /tmp/tiktoken-rs-cache/fb374d419588a4632f3f557e76b4b70aebbca790" | sha256sum -c - && \
-    chmod -R a+rX /tmp/tiktoken-rs-cache
+    echo "446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d  /opt/tiktoken/o200k_base.tiktoken" | sha256sum -c - && \
+    chmod -R a+rX /opt/tiktoken
+
+ENV TIKTOKEN_ENCODINGS_BASE=/opt/tiktoken
 
 USER 1000940000
