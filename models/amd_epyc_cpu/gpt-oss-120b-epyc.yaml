@@ -1,87 +1,90 @@
-apiVersion: serving.kserve.io/v1alpha1
-kind: ServingRuntime
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
 metadata:
   annotations:
-    opendatahub.io/apiProtocol: REST
-    opendatahub.io/runtime-version: v0.24.0
-    opendatahub.io/serving-runtime-scope: global
-    opendatahub.io/template-display-name: vLLM CPU (x86) ServingRuntime for KServe
-    opendatahub.io/template-name: vllm-cpu-x86-runtime-template
-    openshift.io/display-name: vLLM CPU (x86) ServingRuntime for KServe
-  labels:
-    opendatahub.io/dashboard: "true"
-  name: gpt-oss-120b-epyc
-spec:
-  annotations:
-    opendatahub.io/kserve-runtime: vllm
-    prometheus.io/path: /metrics
-    prometheus.io/port: "8080"
-  containers:
-    - args:
-        - --port=8080
-        - --model=/mnt/models
-        - --served-model-name={{.Name}}
-      command:
-        - python
-        - -m
-        - vllm.entrypoints.openai.api_server
-      env:
-        - name: HF_HOME
-          value: /tmp/hf_home
-      image: quay.io/redhat-ai-americas/vllm-cpu-rhel9-epyc-offline:20261010-2000
-      name: kserve-container
-      ports:
-        - containerPort: 8080
-          protocol: TCP
-  multiModel: false
-  supportedModelFormats:
-    - autoSelect: true
-      name: vLLM
----
-apiVersion: serving.kserve.io/v1beta1
-kind: InferenceService
-metadata:
-  annotations:
-    modelFormat: vLLM
-    opendatahub.io/genai-use-case: chat
+    opendatahub.io/genai-use-case: 'chat, tools'
     opendatahub.io/hardware-profile-name: amd-epyc
     opendatahub.io/hardware-profile-namespace: redhat-ods-applications
     opendatahub.io/model-type: generative
-    openshift.io/display-name: gpt-oss-120b-epyc
-    security.opendatahub.io/enable-auth: "false"
-    serving.kserve.io/deploymentMode: Standard
-    serving.kserve.io/stop: "false"
+    openshift.io/display-name: gpt-oss-120b-clone
+    security.opendatahub.io/enable-auth: 'false'
+  name: gpt-oss-120b-clone
+  namespace: models
   labels:
-    networking.kserve.io/visibility: exposed
-    opendatahub.io/dashboard: "true"
-    opendatahub.io/genai-asset: "true"
-  name: gpt-oss-120b-epyc
+    opendatahub.io/dashboard: 'true'
+    opendatahub.io/genai-asset: 'true'
 spec:
-  predictor:
-    automountServiceAccountToken: false
-    deploymentStrategy:
-      type: Recreate
-    maxReplicas: 1
-    minReplicas: 1
-    model:
-      args:
-        - --max-model-len=131072
-        - --enable-auto-tool-choice
-        - --tool-call-parser=openai
-        - --reasoning-parser=openai_gptoss
-      modelFormat:
-        name: vLLM
-      protocolVersion: v2
-      resources:
-        limits:
-          cpu: "60"
-          memory: 220Gi
-        requests:
-          cpu: "32"
-          memory: 192Gi
-      runtime: gpt-oss-120b-epyc
-      storageUri: oci://registry.redhat.io/rhai/modelcar-gpt-oss-120b-essential:3.0
+  baseRefs:
+    - name: vllm-cpu-epyc-llm-template
+  model:
+    name: gpt-oss-120b-clone
+    uri: 'oci://registry.redhat.io/rhai/modelcar-gpt-oss-120b-essential:3.0'
+  replicas: 1
+  router:
+    gateway:
+      refs:
+        - name: openshift-ai-inference
+          namespace: openshift-ingress
+    route: {}
+  template:
+    containers:
+      - env:
+          - name: VLLM_ADDITIONAL_ARGS
+            value: '--max-model-len=131072 --enable-auto-tool-choice --tool-call-parser=openai --reasoning-parser=openai_gptoss'
+        name: main
+        resources:
+          limits:
+            cpu: '60'
+            memory: 220Gi
+          requests:
+            cpu: '32'
+            memory: 192Gi
     nodeSelector:
-      feature.node.kubernetes.io/cpu-cpuid.AVX512VNNI: "true"
+      feature.node.kubernetes.io/cpu-cpuid.AVX512VNNI: 'true'
       feature.node.kubernetes.io/cpu-model.vendor_id: AMD
-    timeout: 30000
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  annotations:
+    platform.opendatahub.io/instance.name: default-kserve
+    openshift.io/description: vLLM CPU (AMD EPYC) LLMInferenceServiceConfig for LLMInferenceService.
+    openshift.io/display-name: vLLM CPU [AMD EPYC]
+    serving.kserve.io/well-known-config: 'true'
+  name: vllm-cpu-epyc-llm-template
+  namespace: models
+  labels:
+    app.kubernetes.io/part-of: kserve
+    app.opendatahub.io/kserve: 'true'
+    opendatahub.io/config-type: accelerator
+    platform.opendatahub.io/part-of: kserve
+spec:
+  template:
+    containers:
+      - image: 'quay.io/redhat-ai-americas/vllm-cpu-rhel9-epyc-offline:20261010-2000'
+        name: main
+        env:
+          - name: HF_HOME
+            value: /tmp/hf_home
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: gpt-oss-120b-clone
+  namespace: models
+  labels:
+    inferenceservice-name: gpt-oss-120b-clone
+  annotations:
+    haproxy.router.openshift.io/timeout: 30000s
+    openshift.io/host.generated: 'true'
+spec:
+  to:
+    kind: Service
+    name: gpt-oss-120b-clone-predictor
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
