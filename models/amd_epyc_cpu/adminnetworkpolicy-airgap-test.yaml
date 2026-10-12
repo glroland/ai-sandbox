@@ -11,7 +11,8 @@ spec:
           kubernetes.io/metadata.name: models
       podSelector:
         matchLabels:
-          serving.kserve.io/inferenceservice: gpt-oss-120b-epyc
+          app.kubernetes.io/name: gpt-oss-120b-epyc
+          app.kubernetes.io/part-of: llminferenceservice
   egress:
     - name: "allow-cluster-and-service-network"
       action: Allow
