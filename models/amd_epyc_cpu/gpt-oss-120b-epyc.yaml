@@ -20,12 +20,6 @@ spec:
     name: gpt-oss-120b-clone
     uri: 'oci://registry.redhat.io/rhai/modelcar-gpt-oss-120b-essential:3.0'
   replicas: 1
-  router:
-    gateway:
-      refs:
-        - name: openshift-ai-inference
-          namespace: openshift-ingress
-    route: {}
   template:
     containers:
       - env:
@@ -80,11 +74,11 @@ metadata:
 spec:
   to:
     kind: Service
-    name: gpt-oss-120b-clone-predictor
+    name: gpt-oss-120b-clone-kserve-workload-svc
     weight: 100
   port:
-    targetPort: http
+    targetPort: https
   tls:
-    termination: edge
+    termination: passthrough
     insecureEdgeTerminationPolicy: Redirect
   wildcardPolicy: None
