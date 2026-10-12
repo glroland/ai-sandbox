@@ -6,18 +6,18 @@ metadata:
     opendatahub.io/hardware-profile-name: amd-epyc
     opendatahub.io/hardware-profile-namespace: redhat-ods-applications
     opendatahub.io/model-type: generative
-    openshift.io/display-name: gpt-oss-120b-clone
+    openshift.io/display-name: gpt-oss-120b-epyc
     security.opendatahub.io/enable-auth: 'false'
-  name: gpt-oss-120b-clone
+  name: gpt-oss-120b-epyc
   namespace: models
   labels:
     opendatahub.io/dashboard: 'true'
     opendatahub.io/genai-asset: 'true'
 spec:
   baseRefs:
-    - name: gpt-oss-120b-clone-config
+    - name: gpt-oss-120b-epyc-config
   model:
-    name: gpt-oss-120b-clone
+    name: gpt-oss-120b-epyc
     uri: 'oci://registry.redhat.io/rhai/modelcar-gpt-oss-120b-essential:3.0'
   replicas: 1
   template:
@@ -42,10 +42,10 @@ kind: LLMInferenceServiceConfig
 metadata:
   annotations:
     platform.opendatahub.io/instance.name: default-kserve
-    openshift.io/description: vLLM CPU (AMD EPYC) LLMInferenceServiceConfig for the gpt-oss-120b-clone LLMInferenceService.
-    openshift.io/display-name: gpt-oss-120b-clone Config - vLLM CPU [AMD EPYC]
+    openshift.io/description: vLLM CPU (AMD EPYC) LLMInferenceServiceConfig for the gpt-oss-120b-epyc LLMInferenceService.
+    openshift.io/display-name: gpt-oss-120b-epyc Config - vLLM CPU [AMD EPYC]
     serving.kserve.io/well-known-config: 'true'
-  name: gpt-oss-120b-clone-config
+  name: gpt-oss-120b-epyc-config
   namespace: models
   labels:
     app.kubernetes.io/part-of: kserve
@@ -64,17 +64,17 @@ spec:
 kind: Route
 apiVersion: route.openshift.io/v1
 metadata:
-  name: gpt-oss-120b-clone
+  name: gpt-oss-120b-epyc
   namespace: models
   labels:
-    inferenceservice-name: gpt-oss-120b-clone
+    inferenceservice-name: gpt-oss-120b-epyc
   annotations:
     haproxy.router.openshift.io/timeout: 30000s
     openshift.io/host.generated: 'true'
 spec:
   to:
     kind: Service
-    name: gpt-oss-120b-clone-kserve-workload-svc
+    name: gpt-oss-120b-epyc-kserve-workload-svc
     weight: 100
   port:
     targetPort: https
