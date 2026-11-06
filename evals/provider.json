@@ -1,0 +1,33 @@
+{
+  "name": "promptfoo",
+  "title": "promptfoo",
+  "description": "Community promptfoo adapter (github.com/eval-hub/eval-hub-contrib/tree/main/adapters/promptfoo) for assertion-based prompt/model regression testing",
+  "tags": ["community", "promptfoo", "regression-testing"],
+  "runtime": {
+    "k8s": {
+      "image": "quay.io/evalhub/community-promptfoo:latest",
+      "entrypoint": ["python", "main.py"],
+      "cpu_request": "250m",
+      "memory_request": "512Mi",
+      "cpu_limit": "2000m",
+      "memory_limit": "4Gi",
+      "image_pull_policy": "always"
+    }
+  },
+  "benchmarks": [
+    {
+      "id": "promptfoo-eval",
+      "name": "promptfoo Assertion-Based Regression Testing",
+      "description": "Runs promptfoo prompts and test cases (vars + assertions) supplied via parameters against the model endpoint. Reports the fraction of test cases that pass.",
+      "category": "capability",
+      "metrics": ["pass_rate", "n_evaluated", "n_passed", "n_failed", "n_errors"],
+      "primary_score": {
+        "metric": "pass_rate",
+        "lower_is_better": false
+      },
+      "pass_criteria": {
+        "threshold": 1.0
+      }
+    }
+  ]
+}

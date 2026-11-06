@@ -1,0 +1,31 @@
+{
+  "name": "hello-world-capital-of-france",
+  "description": "Hello world evaluation: does the model know the capital of France?",
+  "tags": ["hello-world"],
+  "model": {
+    "url": "REPLACED_BY_run-eval.sh",
+    "name": "REPLACED_BY_run-eval.sh"
+  },
+  "benchmarks": [
+    {
+      "provider_id": "REPLACED_BY_run-eval.sh",
+      "id": "promptfoo-eval",
+      "parameters": {
+        "prompts": ["{{question}}"],
+        "tests": [
+          {
+            "description": "Capital of France",
+            "vars": { "question": "What is the capital of France?" },
+            "assert": [{ "type": "icontains", "value": "paris" }]
+          }
+        ]
+      },
+      "pass_criteria": {
+        "threshold": 1.0
+      }
+    }
+  ],
+  "pass_criteria": {
+    "threshold": 1.0
+  }
+}
