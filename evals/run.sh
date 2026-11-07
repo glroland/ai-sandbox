@@ -29,6 +29,19 @@ done
 
 jq '{state: .status.state, message: .status.message.message, test: .results.test, benchmarks: [.results.benchmarks[]? | {id, metrics, test}]}' <<< "$RESULT"
 
+echo
+echo "Test results:"
+jq -c '.results.benchmarks[]?.additional_info.promptfoo_eval_json.results.results[]? | {pass: .success, description: .testCase.description, question: .vars.question, response: .response.output, reason: .gradingResult.reason}' <<< "$RESULT" |
+while IFS= read -r TEST; do
+    MARK=PASS; [ "$(jq -r .pass <<< "$TEST")" = "true" ] || MARK=FAIL
+    echo
+    echo "[$MARK] $(jq -r .description <<< "$TEST")"
+    echo "  Q: $(jq -r .question <<< "$TEST")"
+    echo "  A: $(jq -r .response <<< "$TEST")"
+    if [ "$MARK" = FAIL ]; then echo "  Why: $(jq -r .reason <<< "$TEST")"; fi
+done
+echo
+
 if [ "$(jq -r '.results.test.pass' <<< "$RESULT")" = "true" ]; then
     echo "PASS: all promptfoo assertions passed"
 else

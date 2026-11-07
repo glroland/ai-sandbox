@@ -120,6 +120,27 @@ subjects:
     name: evalhub-service
     namespace: $EVALHUB_NAMESPACE
 EOF
+
+    # 4. The job SA also needs to create/update MLflow experiments and runs (used
+    #    when job.json sets "experiment") — the MLflow server's RBAC-backed proxy
+    #    authorizes those calls via a SubjectAccessReview against mlflow.kubeflow.org
+    #    resources, so without this the job fails with "MLflow save failed:
+    #    PERMISSION_DENIED (HTTP 403)" even though the eval itself ran fine.
+    echo "Granting $JOB_SA MLflow experiment/run access in $EVALHUB_TENANT"
+    oc apply -n "$EVALHUB_TENANT" -f - <<EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ${JOB_SA}-mlflow-rb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mlflow-operator-mlflow-integration
+subjects:
+  - kind: ServiceAccount
+    name: $JOB_SA
+    namespace: $EVALHUB_TENANT
+EOF
 fi
 
 EVALHUB_URL="https://${EVALHUB_HOST}"

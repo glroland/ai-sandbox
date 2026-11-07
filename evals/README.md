@@ -106,8 +106,22 @@ Submitted job 6f1c...
   "test": { "score": 1, "threshold": 1, "pass": true },
   "benchmarks": [ { "id": "promptfoo-eval", "metrics": { "pass_rate": 1, "n_passed": 1, ... } } ]
 }
+
+Test results:
+
+[PASS] Capital of France
+  Q: What is the capital of France?
+  A: The capital of France is **Paris**.
+
 PASS: all promptfoo assertions passed
 ```
+
+`run.sh` prints the per-test breakdown (question, pass/fail, the model's actual
+response, and the assertion failure reason when it fails) straight from the job
+result's `results.benchmarks[].additional_info.promptfoo_eval_json` — this is the
+same detail promptfoo itself produces, just surfaced directly instead of requiring
+a trip through MLflow's or the OpenShift AI dashboard's UI (neither renders it as
+more than a raw JSON artifact download).
 
 ### Model authentication
 

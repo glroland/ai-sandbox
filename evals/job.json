@@ -1,7 +1,8 @@
 {
-  "name": "hello-world-capital-of-france",
-  "description": "Hello world evaluation: does the model know the capital of France?",
-  "tags": ["hello-world"],
+  "name": "basic-evals-with-prompts-example",
+  "description": "Model evaluation test suite that uses basic prompts to verify model quality",
+  "tags": ["prompts"],
+  "experiment": { "name": "basic-evals-with-prompts-example" },
   "model": {
     "url": "https://maas.apps.ocp.home.glroland.com/sandbox/gemma-4",
     "name": "gemma-4",
