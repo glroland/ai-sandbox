@@ -18,6 +18,21 @@
             "description": "Capital of France",
             "vars": { "question": "What is the capital of France?" },
             "assert": [{ "type": "icontains", "value": "paris" }]
+          },
+          {
+            "description": "Capital of Japan",
+            "vars": { "question": "What is the capital of Japan?" },
+            "assert": [{ "type": "icontains", "value": "tokyo" }]
+          },
+          {
+            "description": "Basic arithmetic",
+            "vars": { "question": "What is 2 + 2?" },
+            "assert": [{ "type": "icontains", "value": "4" }]
+          },
+          {
+            "description": "Mitochondria summary",
+            "vars": { "question": "Summarize this in one sentence: The mitochondria is the powerhouse of the cell." },
+            "assert": [{ "type": "contains-all", "value": ["energy", "cell"] }]
           }
         ]
       },
