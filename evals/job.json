@@ -3,12 +3,13 @@
   "description": "Hello world evaluation: does the model know the capital of France?",
   "tags": ["hello-world"],
   "model": {
-    "url": "REPLACED_BY_run-eval.sh",
-    "name": "REPLACED_BY_run-eval.sh"
+    "url": "https://maas.apps.ocp.home.glroland.com/sandbox/gemma-4",
+    "name": "gemma-4",
+    "auth": { "secret_ref": "gemma-4-api-key" }
   },
   "benchmarks": [
     {
-      "provider_id": "REPLACED_BY_run-eval.sh",
+      "provider_id": "REPLACED_BY_run.sh",
       "id": "promptfoo-eval",
       "parameters": {
         "prompts": ["{{question}}"],
