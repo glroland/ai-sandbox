@@ -38,7 +38,19 @@ if [ "$EVALHUB_TENANT" != "$EVALHUB_NAMESPACE" ]; then
     oc get configmap evalhub-service-ca -n "$EVALHUB_TENANT" > /dev/null 2>&1 ||
         NOT_READY+=("ConfigMap evalhub-service-ca is missing")
 fi
-[ "$(oc auth can-i list providers.trustyai.opendatahub.io -n "$EVALHUB_TENANT" 2> /dev/null)" = "yes" ] ||
+# Ask with a SelfSubjectAccessReview, mirroring EvalHub's own check. "oc auth can-i"
+# can't be used: providers isn't a real API resource (no CRD), so oc can't resolve its
+# group and asks about the wrong resource, always answering "no".
+oc create -o jsonpath='{.status.allowed}' -f - <<EOF 2> /dev/null | grep -qx true ||
+apiVersion: authorization.k8s.io/v1
+kind: SelfSubjectAccessReview
+spec:
+  resourceAttributes:
+    namespace: $EVALHUB_TENANT
+    verb: list
+    group: trustyai.opendatahub.io
+    resource: providers
+EOF
     NOT_READY+=("user '$EVALHUB_USER' has no EvalHub API access (needs Contributor or Admin on the project, once it's prepared)")
 if [ ${#NOT_READY[@]} -gt 0 ]; then
     echo "Namespace '$EVALHUB_TENANT' isn't prepared for evals:" >&2
