@@ -1,21 +1,33 @@
 #!/bin/bash
-# Submit an evaluation job (default: the hello world job.json) and wait for the pass/fail result.
-# Usage: ./run.sh [job-file.json]
-set -e
+# Submit an evaluation job and wait for the pass/fail result.
+# Usage: ./run.sh <namespace> <job-file.json>   (e.g. job.json, job-ifeval.json)
+set -eo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-JOB_FILE=${1:-$SCRIPT_DIR/job.json}
 
-[ -f "$SCRIPT_DIR/.evalhub.env" ] || { echo "Run ./install.sh first." >&2; exit 1; }
-source "$SCRIPT_DIR/.evalhub.env"
+# EvalHub route host. Override via env.
+EVALHUB_HOST=${EVALHUB_HOST:-evalhub-redhat-ods-applications.apps.ocp.home.glroland.com}
+
+[ -n "$1" ] && [ -n "$2" ] || { echo "Usage: $0 <namespace> <job-file.json>" >&2; exit 1; }
+EVALHUB_TENANT=$1
+JOB_FILE=$2
+[ -f "$JOB_FILE" ] || { echo "Job file '$JOB_FILE' not found." >&2; exit 1; }
 
 EVALHUB_URL="https://${EVALHUB_HOST}"
 EVALHUB_TOKEN=${EVALHUB_TOKEN:-$(oc whoami -t)}
 AUTH=(-H "Authorization: Bearer $EVALHUB_TOKEN" -H "X-Tenant: $EVALHUB_TENANT")
 [ "$INSECURE" = "true" ] && AUTH+=(--insecure)
 
-JOB=$(jq --arg pid "$EVALHUB_PROVIDER_ID" \
-    '(.benchmarks[] | select(.provider_id == "REPLACED_BY_run.sh") | .provider_id) = $pid' "$JOB_FILE")
+# Jobs for the promptfoo provider reference it by a placeholder, since its id is
+# assigned by EvalHub when install-evals.sh registers it. Look it up by name.
+JOB=$(cat "$JOB_FILE")
+if jq -e '[.benchmarks[].provider_id] | index("REPLACED_BY_run.sh")' <<< "$JOB" > /dev/null; then
+    PROVIDER_ID=$(curl -s -f -S "${AUTH[@]}" "$EVALHUB_URL/api/v1/evaluations/providers?name=promptfoo&scope=tenant&benchmarks=false" |
+        jq -r '[.items[]? | select(.name == "promptfoo")][0].resource.id // empty')
+    [ -n "$PROVIDER_ID" ] || { echo "No promptfoo provider in '$EVALHUB_TENANT'. Run ./install-evals.sh $EVALHUB_TENANT first." >&2; exit 1; }
+    JOB=$(jq --arg pid "$PROVIDER_ID" \
+        '(.benchmarks[] | select(.provider_id == "REPLACED_BY_run.sh") | .provider_id) = $pid' <<< "$JOB")
+fi
 JOB_ID=$(curl -s -f -S "${AUTH[@]}" -H "Content-Type: application/json" \
     -d "$JOB" "$EVALHUB_URL/api/v1/evaluations/jobs" | jq -r .resource.id)
 echo "Submitted job $JOB_ID"

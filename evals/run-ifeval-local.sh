@@ -21,13 +21,20 @@ if [ -z "$MODEL_API_KEY" ]; then
     echo
 fi
 
+# Completed requests are cached, so if a run dies (e.g. the gateway drops a connection,
+# which lm-eval doesn't retry) rerunning resumes where it left off. The cache is cleared
+# after a successful run so the next run always gets fresh answers from the model.
 OUTPUT="$SCRIPT_DIR/.eval-ifeval-local"
+CACHE="$SCRIPT_DIR/.eval-ifeval-local-cache/requests"
+mkdir -p "$(dirname "$CACHE")"
 rm -rf "$OUTPUT"
 
 OPENAI_API_KEY=${MODEL_API_KEY:-not-required} uvx --python 3.12 --from "lm-eval[api,ifeval]==$LM_EVAL_VERSION" \
     lm_eval --model local-chat-completions \
     --model_args "model=$MODEL_NAME,base_url=${MODEL_URL%/}/chat/completions,num_concurrent=$CONCURRENT,max_retries=5,tokenized_requests=False" \
-    --tasks ifeval --apply_chat_template --log_samples --output_path "$OUTPUT" "$@"
+    --tasks ifeval --apply_chat_template --log_samples --output_path "$OUTPUT" \
+    --use_cache "$CACHE" "$@"
+rm -rf "$(dirname "$CACHE")"
 
 RESULTS=$(find "$OUTPUT" -name 'results_*.json' | head -1)
 jq --argjson t "$THRESHOLD" '.results.ifeval | {

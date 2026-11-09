@@ -12,22 +12,29 @@ There's no custom code or image to build. It uses the community
 | `provider.json` | Registers the promptfoo provider and its `promptfoo-eval` benchmark (primary score `pass_rate`, threshold 1.0) |
 | `job.json` | Evaluation job request, including the model URL/name and the promptfoo prompt/test case |
 | `job-ifeval.json` | Standard IFEval instruction-following benchmark, run by EvalHub's built-in LM Evaluation Harness provider (see [Instruction following (IFEval)](#instruction-following-ifeval)) |
-| `optional/rbac.yaml` | Role and RoleBinding that let a non-admin *user* run evaluations in a project (only needed for non-admin users; see Prerequisites) |
-| `install.sh` | One-time setup: discovers EvalHub, labels/provisions the tenant namespace if needed, registers the provider, and stores the model's API key as a Secret |
-| `run.sh` | Submits the job (`job.json`, or the file passed as its first argument) to EvalHub, polls until it finishes, prints the result, and exits non-zero on failure |
+| `optional/rbac.yaml` | Role and RoleBinding that give a single user EvalHub API access in one project (not needed when Contributor/Admin access from `prepare-namespace-for-evals.sh` is enough) |
+| `prepare-namespace-for-evals.sh` | **Run as cluster admin**, once per namespace: labels/provisions it as an EvalHub tenant and gives project Contributors/Admins EvalHub API access |
+| `install-evals.sh` | One-time setup as a project Contributor/Admin: checks the namespace was prepared, registers the provider, and stores the model's API key as a Secret |
+| `run.sh` | Submits the given job file (e.g. `job.json`) to EvalHub, polls until it finishes, prints the result, and exits non-zero on failure |
 | `run-ifeval-local.sh` | Runs IFEval locally with lm-evaluation-harness against the model's chat endpoint, with the chat template applied (see below) |
 | `run-local.sh` | Runs the same prompt/test straight against the model with the local `promptfoo` CLI — no EvalHub, no OpenShift |
 
-`install.sh` discovers `EVALHUB_HOST` from the EvalHub route (`oc get route -A -l
-app=eval-hub`) and `EVALHUB_TENANT` from your current `oc project`, then writes them
-(plus the registered provider id) to `.evalhub.env` (gitignored) for `run.sh` to read.
-Override the discovered host/tenant by exporting `EVALHUB_HOST`/`EVALHUB_TENANT` before
-running `install.sh`. The model URL/name/secret are hardcoded directly in `job.json` —
-edit that file in place if the model changes.
+All three scripts take the tenant namespace as a required first argument. The EvalHub
+host and the namespace EvalHub runs in are set at the top of each script (override by
+exporting `EVALHUB_HOST`/`EVALHUB_NAMESPACE`). No local state is kept: `run.sh` looks up
+the registered promptfoo provider's id from EvalHub by name on each run. The model
+URL/name/secret are hardcoded directly in `job.json` — edit that file in place if the
+model changes.
 
-If the tenant namespace isn't the one EvalHub itself runs in, `install.sh` also
-provisions it as a tenant directly (EvalHub has no controller that does this from a
-namespace label alone — these are normally static, hand-provisioned resources):
+`install-evals.sh` fails up front, naming the exact `prepare-namespace-for-evals.sh`
+command to hand a cluster admin, if the namespace hasn't been prepared or the current
+user has no EvalHub API access there.
+
+If the tenant namespace isn't the one EvalHub itself runs in,
+`prepare-namespace-for-evals.sh` provisions it as a tenant directly (EvalHub has no
+controller that does this from a namespace label alone — these are normally static,
+hand-provisioned resources). A project admin can't do this: namespace labels and Roles
+granting `trustyai.opendatahub.io` permissions both need cluster admin. It:
 - labels it as an EvalHub tenant (`evalhub.trustyai.opendatahub.io/tenant=`)
 - labels it `opendatahub.io/application-namespace=true` — the NetworkPolicy guarding
   EvalHub's namespace only allows ingress from namespaces carrying this label (the same
@@ -44,6 +51,17 @@ namespace label alone — these are normally static, hand-provisioned resources)
 - binds the `evalhub-service` service account to the built-in `edit` ClusterRole there,
   since it needs to manage secrets/configmaps/pods in the tenant namespace to run the
   benchmark — without this, the job fails with a `... is forbidden` RBAC error
+- binds the job service account to `mlflow-operator-mlflow-integration` — without this,
+  saving to MLflow fails with `PERMISSION_DENIED (HTTP 403)` even though the eval ran
+
+It also creates the `evalhub-evaluator` ClusterRole, labeled to aggregate into the
+built-in `edit` and `admin` ClusterRoles, which back the OpenShift AI dashboard's project
+**Contributor** and **Admin** permissions. EvalHub authorizes every API call with a
+SubjectAccessReview against `trustyai.opendatahub.io` resources (`providers`,
+`evaluations`, `collections`), which `edit`/`admin` don't include by default — without
+it, API calls fail with `403 Forbidden (user=..., verb=list, resource=providers)`. The
+aggregation is cluster-wide (every project's Contributors/Admins get these permissions),
+but EvalHub only runs evaluations in namespaces prepared as tenants.
 
 ## The test
 
@@ -68,21 +86,19 @@ cases that pass, and the 1.0 threshold means every one must pass.
 ## Prerequisites
 
 - EvalHub enabled in OpenShift AI (an `EvalHub` CR, `trustyai.opendatahub.io/v1alpha1`)
-- `oc` (logged in to the target cluster, with the desired project set as current), `jq`, `curl`
-- Cluster-admin rights the first time you run `./install.sh` against a new tenant
-  namespace (it labels the namespace and grants RBAC there — see above)
-- For non-admin users: apply `optional/rbac.yaml` (after editing the namespace and user)
-
-```bash
-oc project my-project   # or redhat-ods-applications
-oc apply -f optional/rbac.yaml
-```
+- `oc` (logged in to the target cluster), `jq`, `curl`
+- A cluster admin to run `prepare-namespace-for-evals.sh` once per namespace
+- Contributor or Admin on the project (granted from the OpenShift AI dashboard)
 
 ## Usage
 
 ```bash
-./install.sh   # once: discovers EvalHub, registers the provider, prompts for the model's API key
-./run.sh        # submits the job and prints pass/fail
+# As cluster admin, once per namespace:
+./prepare-namespace-for-evals.sh my-project
+
+# As a project Contributor/Admin:
+./install-evals.sh my-project   # once: registers the provider, prompts for the model's API key
+./run.sh my-project job.json    # submits the job and prints pass/fail
 ```
 
 To run against the model directly, without EvalHub or OpenShift at all (just `jq` and
@@ -131,10 +147,10 @@ more than a raw JSON artifact download).
 (541 prompts, 25 verifiable instruction types such as word counts, JSON output, required
 or forbidden keywords, and casing). No custom tests are needed because it's already
 registered in EvalHub as benchmark `ifeval` of the built-in `lm_evaluation_harness`
-provider (Red Hat's `odh-ta-lmes-job` image). `install.sh` doesn't register anything for it.
+provider (Red Hat's `odh-ta-lmes-job` image). `install-evals.sh` doesn't register anything for it.
 
 ```bash
-./run.sh job-ifeval.json
+./run.sh my-project job-ifeval.json
 ```
 
 - The primary score is `inst_level_strict_acc`, which is the fraction of individual
@@ -167,7 +183,10 @@ It reads the model URL/name, concurrency and threshold from `job-ifeval.json`, r
 lm-eval `0.4.13` (via `uvx`, so nothing gets installed globally) with the
 `local-chat-completions` backend and `--apply_chat_template`, and reports pass/fail on
 `inst_level_strict_acc`. Results and per-prompt samples are written to
-`.eval-ifeval-local/` (gitignored). On the same 10 prompts, gemma-4 scored 0.39 through
+`.eval-ifeval-local/` (gitignored). If a run dies partway through (e.g. `ServerDisconnectedError`
+when the gateway drops a connection), run it again: completed requests are cached in
+`.eval-ifeval-local-cache/` and only the remaining ones get sent. The cache is cleared
+after a run that completes. On the same 10 prompts, gemma-4 scored 0.39 through
 the EvalHub adapter and 0.94 locally.
 
 Note that lm-eval logs the full request headers, including the `Authorization` bearer
@@ -182,7 +201,7 @@ token, when a request fails and is retried. Don't paste that output anywhere pub
 
 ### Model authentication
 
-`install.sh` prompts for the model's API key and stores it as a Secret
+`install-evals.sh` prompts for the model's API key and stores it as a Secret
 (`gemma-4-api-key`) in the tenant namespace, referenced from `job.json` via
 `model.auth.secret_ref`. Leave the prompt blank to skip creating/updating the secret.
 `run-local.sh` instead takes the raw key directly via `MODEL_API_KEY` (or a prompt),
@@ -198,7 +217,7 @@ an MLflow tracking URI.
 
 - The promptfoo adapter is community-maintained, not Red Hat–supported.
 - `provider.json` uses the `:latest` tag. To pin a specific digest for repeatable
-  results, edit the `image` field directly and rerun `./install.sh`.
+  results, edit the `image` field directly and rerun `./install-evals.sh <namespace>`.
 - Set `INSECURE=true` before running either script to skip TLS verification against
   a cluster with self-signed certs.
 - `run-local.sh` pins the same promptfoo CLI version (`0.123.1`) the in-cluster adapter
