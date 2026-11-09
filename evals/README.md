@@ -11,9 +11,11 @@ There's no custom code or image to build. It uses the community
 |------|---------|
 | `provider.json` | Registers the promptfoo provider and its `promptfoo-eval` benchmark (primary score `pass_rate`, threshold 1.0) |
 | `job.json` | Evaluation job request, including the model URL/name and the promptfoo prompt/test case |
+| `job-ifeval.json` | Standard IFEval instruction-following benchmark, run by EvalHub's built-in LM Evaluation Harness provider (see [Instruction following (IFEval)](#instruction-following-ifeval)) |
 | `optional/rbac.yaml` | Role and RoleBinding that let a non-admin *user* run evaluations in a project (only needed for non-admin users; see Prerequisites) |
 | `install.sh` | One-time setup: discovers EvalHub, labels/provisions the tenant namespace if needed, registers the provider, and stores the model's API key as a Secret |
-| `run.sh` | Submits the job to EvalHub, polls until it finishes, prints the result, and exits non-zero on failure |
+| `run.sh` | Submits the job (`job.json`, or the file passed as its first argument) to EvalHub, polls until it finishes, prints the result, and exits non-zero on failure |
+| `run-ifeval-local.sh` | Runs IFEval locally with lm-evaluation-harness against the model's chat endpoint, with the chat template applied (see below) |
 | `run-local.sh` | Runs the same prompt/test straight against the model with the local `promptfoo` CLI — no EvalHub, no OpenShift |
 
 `install.sh` discovers `EVALHUB_HOST` from the EvalHub route (`oc get route -A -l
@@ -122,6 +124,61 @@ result's `results.benchmarks[].additional_info.promptfoo_eval_json` — this is 
 same detail promptfoo itself produces, just surfaced directly instead of requiring
 a trip through MLflow's or the OpenShift AI dashboard's UI (neither renders it as
 more than a raw JSON artifact download).
+
+### Instruction following (IFEval)
+
+`job-ifeval.json` runs the standard [IFEval](https://arxiv.org/abs/2311.07911) benchmark
+(541 prompts, 25 verifiable instruction types such as word counts, JSON output, required
+or forbidden keywords, and casing). No custom tests are needed because it's already
+registered in EvalHub as benchmark `ifeval` of the built-in `lm_evaluation_harness`
+provider (Red Hat's `odh-ta-lmes-job` image). `install.sh` doesn't register anything for it.
+
+```bash
+./run.sh job-ifeval.json
+```
+
+- The primary score is `inst_level_strict_acc`, which is the fraction of individual
+  instructions followed exactly. The job also reports `prompt_level_strict_acc`, where
+  every instruction in a prompt must be followed, and the `*_loose_acc` variants.
+  The threshold is EvalHub's default for this benchmark: 0.6.
+- The lm-eval adapter needs a Hugging Face tokenizer even when calling an
+  OpenAI-compatible endpoint. `gemma-4` isn't a Hugging Face repo id, so `parameters.tokenizer`
+  is set to `RedHatAI/gemma-4-E4B-it` (the model the service serves; not gated).
+- The adapter appends `/completions` to `model.url` (or `/v1/completions` if the URL doesn't
+  end in `/v1`), so either URL form works.
+- **Caveat: the adapter always uses lm-eval's `local-completions` backend.** It sends raw
+  text to `/v1/completions` without applying the model's chat template, and the job
+  spec has no parameter to change that. Instruct/chat models like Gemma do much worse
+  without their template, so scores here are lower than published IFEval numbers
+  (which are measured with the chat template) and aren't comparable to them. They're
+  still consistent run-to-run, so they work for regression tracking on the same model.
+  The first concurrent batch of requests may also log `Internal Server Error`. lm-eval
+  retries those automatically.
+
+To get scores comparable to published IFEval numbers, run it locally through the chat
+endpoint instead (needs `uv` and `jq`; no EvalHub or OpenShift):
+
+```bash
+MODEL_API_KEY=... ./run-ifeval-local.sh            # full 541 prompts
+MODEL_API_KEY=... ./run-ifeval-local.sh --limit 10 # smoke test; extra args go to lm_eval
+```
+
+It reads the model URL/name, concurrency and threshold from `job-ifeval.json`, runs
+lm-eval `0.4.13` (via `uvx`, so nothing gets installed globally) with the
+`local-chat-completions` backend and `--apply_chat_template`, and reports pass/fail on
+`inst_level_strict_acc`. Results and per-prompt samples are written to
+`.eval-ifeval-local/` (gitignored). On the same 10 prompts, gemma-4 scored 0.39 through
+the EvalHub adapter and 0.94 locally.
+
+Note that lm-eval logs the full request headers, including the `Authorization` bearer
+token, when a request fails and is retried. Don't paste that output anywhere public.
+- The job pod downloads the `google/IFEval` dataset and the tokenizer from Hugging Face
+  at runtime. Disconnected clusters need them staged; see EvalHub's
+  [disconnected cluster guide](https://eval-hub.github.io/guides/disconnected-cluster/).
+- For a quick smoke test, add `"num_examples": 10` to the benchmark's `parameters`.
+  That's useful for checking the setup, but the score isn't meaningful.
+- `run.sh` prints the metrics and pass/fail only. The per-prompt breakdown is
+  promptfoo-specific.
 
 ### Model authentication
 

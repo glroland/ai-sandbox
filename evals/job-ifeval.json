@@ -1,0 +1,27 @@
+{
+  "name": "ifeval-instruction-following",
+  "description": "Standard IFEval instruction-following benchmark (541 prompts, 25 verifiable instruction types) via the built-in LM Evaluation Harness provider",
+  "tags": ["instruction-following", "ifeval"],
+  "experiment": { "name": "ifeval-instruction-following" },
+  "model": {
+    "url": "https://maas.apps.ocp.home.glroland.com/sandbox/gemma-4/v1",
+    "name": "gemma-4",
+    "auth": { "secret_ref": "gemma-4-api-key" }
+  },
+  "benchmarks": [
+    {
+      "provider_id": "lm_evaluation_harness",
+      "id": "ifeval",
+      "parameters": {
+        "tokenizer": "RedHatAI/gemma-4-E4B-it",
+        "num_concurrent": 8
+      },
+      "pass_criteria": {
+        "threshold": 0.6
+      }
+    }
+  ],
+  "pass_criteria": {
+    "threshold": 0.6
+  }
+}
