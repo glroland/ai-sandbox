@@ -1,0 +1,43 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: gpt-oss-120b
+  annotations:
+    serving.kserve.io/deploymentMode: RawDeployment
+    serving.kserve.io/autoscalerClass: "none"
+spec:
+  predictor:
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      modelFormat:
+        name: vLLM
+      runtime: vllm-multinode-runtime
+      storageUri: oci://registry.redhat.io/rhai/modelcar-gpt-oss-120b-essential:3.0
+      args:
+        - "--max-model-len=131072"
+        - "--gpu-memory-utilization=0.92"
+        - "--trust-remote-code"
+      resources:
+        limits:
+          cpu: "16"
+          memory: 64Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "8"
+          memory: 32Gi
+          nvidia.com/gpu: "1"
+    workerSpec:
+      pipelineParallelSize: 2            # Number of pipeline stages (2 nodes)
+      tensorParallelSize: 1              # 1 GPU per stage
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+                - key: serving.kserve.io/inferenceservice
+                  operator: In
+                  values:
+                    - gpt-oss-120b
+            topologyKey: "kubernetes.io/hostname"
+

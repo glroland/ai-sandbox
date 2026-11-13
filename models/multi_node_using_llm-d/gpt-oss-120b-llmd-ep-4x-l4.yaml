@@ -1,0 +1,93 @@
+# gpt-oss-120b split across 4 single-GPU nodes (1x L4 24GB each) using
+# llm-d wide expert parallelism: DP=4 x EP, one rank per node via LeaderWorkerSet.
+# Experts are sharded across ranks; attention/dense layers are replicated per rank.
+# Sizing: each rank holds 128/DP experts plus the replicated layers, so DP=2 OOMs on
+# 24GB cards. On larger GPUs, lower parallelism.data and raise --max-model-len.
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  annotations:
+    opendatahub.io/genai-use-case: 'chat, tools'
+    opendatahub.io/model-type: generative
+    openshift.io/display-name: gpt-oss-120b
+    security.opendatahub.io/enable-auth: 'false'
+  name: gpt-oss-120b
+  namespace: models
+  labels:
+    opendatahub.io/dashboard: 'true'
+    opendatahub.io/genai-asset: 'true'
+spec:
+  model:
+    name: gpt-oss-120b
+    uri: 'oci://registry.redhat.io/rhai/modelcar-gpt-oss-120b-essential:3.0'
+  replicas: 1
+  parallelism:
+    data: 4          # total ranks (one per node)
+    dataLocal: 1     # ranks per pod (1 GPU per node)
+    tensor: 1
+    expert: true     # shard MoE experts across the DP ranks
+  router:
+    scheduler: {}    # llm-d inference scheduler (EPP) with preset defaults
+  template:
+    containers:
+      - name: main
+        env:
+          - name: VLLM_ADDITIONAL_ARGS
+            value: '--max-model-len=32768 --gpu-memory-utilization=0.98 --max-num-seqs=16 --max-num-batched-tokens=1024 --max-cudagraph-capture-size=32 --kv-cache-dtype=fp8 --enable-auto-tool-choice --tool-call-parser=openai --reasoning-parser=openai_gptoss'
+          - name: VLLM_API_SERVER_COUNT
+            value: '4'
+        # Leader waits for all DP ranks; first-time modelcar pulls (~65GB) on workers
+        # can exceed the template's 10m startup window and trigger a group restart.
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          periodSeconds: 10
+          failureThreshold: 360
+        resources:
+          limits:
+            cpu: '14'
+            memory: 96Gi
+            nvidia.com/gpu: '1'
+          requests:
+            cpu: '8'
+            memory: 32Gi
+            nvidia.com/gpu: '1'
+  worker:
+    containers:
+      - name: main
+        env:
+          - name: VLLM_ADDITIONAL_ARGS
+            value: '--max-model-len=32768 --gpu-memory-utilization=0.98 --max-num-seqs=16 --max-num-batched-tokens=1024 --max-cudagraph-capture-size=32 --kv-cache-dtype=fp8'
+        resources:
+          limits:
+            cpu: '14'
+            memory: 96Gi
+            nvidia.com/gpu: '1'
+          requests:
+            cpu: '8'
+            memory: 32Gi
+            nvidia.com/gpu: '1'
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: gpt-oss-120b
+  namespace: models
+  labels:
+    inferenceservice-name: gpt-oss-120b
+  annotations:
+    haproxy.router.openshift.io/timeout: 30000s
+    openshift.io/host.generated: 'true'
+spec:
+  to:
+    kind: Service
+    name: gpt-oss-120b-kserve-workload-svc
+    weight: 100
+  port:
+    targetPort: https
+  tls:
+    termination: passthrough
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

@@ -55,7 +55,7 @@ metadata:
 spec:
   template:
     containers:
-      - image: 'quay.io/redhat-ai-americas/vllm-cpu-rhel9-epyc-offline:20261010-2000'
+      - image: 'quay.io/redhat-ai-americas/vllm-cpu-rhel9-epyc-offline:20261012-1147'
         name: main
         env:
           - name: HF_HOME
