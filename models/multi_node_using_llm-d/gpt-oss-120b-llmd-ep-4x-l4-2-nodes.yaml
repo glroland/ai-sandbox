@@ -38,6 +38,11 @@ spec:
     expert: true     # shard MoE experts across all DP x TP ranks
   router:
     scheduler: {}    # llm-d inference scheduler (EPP) with preset defaults
+    route: {}        # managed HTTPRoute attaching the InferencePool to the gateway
+    gateway:
+      refs:
+        - name: maas-default-gateway
+          namespace: openshift-ingress
   template:
     containers:
       - name: main
