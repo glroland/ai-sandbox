@@ -31,7 +31,7 @@ spec:
     route: {}        # managed HTTPRoute attaching the InferencePool to the gateway
     gateway:
       refs:
-        - name: maas-default-gateway
+        - name: openshift-ai-inference
           namespace: openshift-ingress
   template:
     containers:
