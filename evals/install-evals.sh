@@ -29,7 +29,7 @@ echo "Using EvalHub host: $EVALHUB_HOST (namespace $EVALHUB_NAMESPACE)"
 NOT_READY=()
 if [ "$EVALHUB_TENANT" != "$EVALHUB_NAMESPACE" ]; then
     NS_JSON=$(oc get namespace "$EVALHUB_TENANT" -o json)
-    for LABEL in evalhub.trustyai.opendatahub.io/tenant= opendatahub.io/application-namespace=true; do
+    for LABEL in evalhub.trustyai.opendatahub.io/tenant=; do
         jq -e --arg k "${LABEL%%=*}" --arg v "${LABEL#*=}" '.metadata.labels[$k] == $v' <<< "$NS_JSON" > /dev/null ||
             NOT_READY+=("namespace is missing label $LABEL")
     done

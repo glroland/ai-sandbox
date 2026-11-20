@@ -48,15 +48,8 @@ echo "Preparing namespace '$EVALHUB_TENANT' for EvalHub (evalhub-service in '$EV
 # per-tenant resources below are static and normally hand-provisioned once, per tenant
 # (e.g. via GitOps), so create them directly instead of waiting for something to notice.
 if [ "$EVALHUB_TENANT" != "$EVALHUB_NAMESPACE" ]; then
-    # The tenant label marks the namespace as an EvalHub tenant. The
-    # application-namespace label is needed because the NetworkPolicy guarding
-    # $EVALHUB_NAMESPACE only allows ingress from namespaces labeled as an
-    # OpenDataHub "application namespace" (the same label Data Science Projects get
-    # from the dashboard). Without it, the job's status callbacks to evalhub silently
-    # time out and the job stays "pending" forever even though it actually ran and
-    # produced a result.
+    # The tenant label marks the namespace as an EvalHub tenant.
     oc label namespace "$EVALHUB_TENANT" evalhub.trustyai.opendatahub.io/tenant= --overwrite
-    oc label namespace "$EVALHUB_TENANT" opendatahub.io/application-namespace=true --overwrite
 
     # 1. The service account evaluation Jobs run their pod as, plus the Role it needs
     #    to report status events back to EvalHub. Mirrors what already exists for

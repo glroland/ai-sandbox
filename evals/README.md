@@ -38,11 +38,6 @@ controller that does this from a namespace label alone — these are normally st
 hand-provisioned resources). A project admin can't do this: namespace labels and Roles
 granting `trustyai.opendatahub.io` permissions both need cluster admin. It:
 - labels it as an EvalHub tenant (`evalhub.trustyai.opendatahub.io/tenant=`)
-- labels it `opendatahub.io/application-namespace=true` — the NetworkPolicy guarding
-  EvalHub's namespace only allows ingress from namespaces carrying this label (the same
-  one Data Science Projects get from the dashboard). Without it, the job's status
-  callbacks to EvalHub silently time out and the job stays reported as `pending`
-  forever even though it actually ran and produced a result
 - creates the `evalhub-<namespace>-job` service account evaluation Jobs run their pod
   as, plus the Role it needs to report status events back to EvalHub — without this,
   jobs sit stuck because the Job can't even create its pod
