@@ -22,7 +22,7 @@ The evaluation tools themselves are downloaded automatically the first time a no
 ## 2. Point the notebooks at your model
 
 ```bash
-cp .env.template .env
+cp dot_env.template .env
 ```
 
 Edit `.env`:

@@ -1,4 +1,4 @@
-# Copy this file to ".env" and fill in your values:  cp .env.template .env
+# Copy this file to ".env" and fill in your values:  cp dot_env.template .env
 # The ".env" file is git-ignored, so your API key is never committed.
 
 # OpenAI-compatible base URL of the model endpoint (usually ends in /v1)
