@@ -37,7 +37,9 @@ rm -rf "$OUTPUT"
 OPENAI_API_KEY=${MODEL_API_KEY:-not-required} uvx --python 3.12 --from "lm-eval[api]==$LM_EVAL_VERSION" \
     lm_eval --model local-chat-completions \
     --model_args "model=$MODEL_NAME,base_url=${MODEL_URL%/}/chat/completions,num_concurrent=$CONCURRENT,max_retries=5,tokenized_requests=False" \
-    --tasks "$TASK" --apply_chat_template --log_samples --output_path "$OUTPUT" \
+    --tasks "$TASK" --apply_chat_template --num_fewshot 5 \
+    --system_instruction "Reply with only the letter of the correct answer (A, B, C, or D)." \
+    --log_samples --output_path "$OUTPUT" \
     --use_cache "$CACHE" "$@"
 rm -rf "$(dirname "$CACHE")"
 
