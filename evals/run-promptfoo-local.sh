@@ -1,16 +1,21 @@
 #!/bin/bash
 # Run the hello world evaluation locally with promptfoo, straight against the model.
-# No EvalHub, no OpenShift — just the same prompts/tests/model from job.json.
+# No EvalHub, no OpenShift — just the same prompts/tests/model from the job file.
+# Usage: ./run-promptfoo-local.sh <job-file.json>   (e.g. job-basic.json)
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PROMPTFOO_VERSION=0.123.1
 
+[ -n "$1" ] || { echo "Usage: $0 <job-file.json>" >&2; exit 1; }
+JOB_FILE=$1
+[ -f "$JOB_FILE" ] || { echo "Job file '$JOB_FILE' not found." >&2; exit 1; }
+
 command -v npx >/dev/null || { echo "npx (Node.js) is required." >&2; exit 1; }
 
-MODEL_URL=$(jq -r '.model.url' "$SCRIPT_DIR/job.json")
-MODEL_NAME=$(jq -r '.model.name' "$SCRIPT_DIR/job.json")
-THRESHOLD=$(jq -r '.pass_criteria.threshold' "$SCRIPT_DIR/job.json")
+MODEL_URL=$(jq -r '.model.url' "$JOB_FILE")
+MODEL_NAME=$(jq -r '.model.name' "$JOB_FILE")
+THRESHOLD=$(jq -r '.pass_criteria.threshold' "$JOB_FILE")
 
 if [ -z "$MODEL_API_KEY" ]; then
     read -r -s -p "Model API key for $MODEL_NAME (leave blank if none): " MODEL_API_KEY
@@ -24,7 +29,7 @@ trap 'rm -rf "$WORKDIR"' EXIT
 
 jq --arg url "$MODEL_URL/v1" --arg name "$MODEL_NAME" --arg key "${MODEL_API_KEY:-not-required}" \
     '.benchmarks[0].parameters + {providers: [{id: ("openai:chat:" + $name), config: {apiBaseUrl: $url, apiKey: $key}}]}' \
-    "$SCRIPT_DIR/job.json" > "$CONFIG"
+    "$JOB_FILE" > "$CONFIG"
 
 npx --yes "promptfoo@$PROMPTFOO_VERSION" eval -c "$CONFIG" -o "$OUTPUT" --no-cache --no-progress-bar -j 4
 

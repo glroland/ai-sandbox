@@ -1,3 +1,5 @@
 .eval-local.json
 .eval-ifeval-local/
 .eval-ifeval-local-cache/
+.eval-mmlu-local/
+.eval-mmlu-local-cache/

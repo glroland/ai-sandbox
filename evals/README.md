@@ -17,7 +17,8 @@ There's no custom code or image to build. It uses the community
 | `install-evals.sh` | One-time setup as a project Contributor/Admin: checks the namespace was prepared, registers the provider, and stores the model's API key as a Secret |
 | `run.sh` | Submits the given job file (e.g. `job.json`) to EvalHub, polls until it finishes, prints the result, and exits non-zero on failure |
 | `run-ifeval-local.sh` | Runs IFEval locally with lm-evaluation-harness against the model's chat endpoint, with the chat template applied (see below) |
-| `run-local.sh` | Runs the same prompt/test straight against the model with the local `promptfoo` CLI — no EvalHub, no OpenShift |
+| `run-mmlu-local.sh` | Runs MMLU (generative, exact match) locally with lm-evaluation-harness against the model's chat endpoint, with the chat template applied — no EvalHub, no OpenShift |
+| `run-promptfoo-local.sh` | Runs the same prompt/test straight against the model with the local `promptfoo` CLI — no EvalHub, no OpenShift |
 
 All three scripts take the tenant namespace as a required first argument. The EvalHub
 host and the namespace EvalHub runs in are set at the top of each script (override by
@@ -102,10 +103,10 @@ cases that pass, and the 1.0 threshold means every one must pass.
 ```
 
 To run against the model directly, without EvalHub or OpenShift at all (just `jq` and
-`npx`/Node.js), use `run-local.sh` instead:
+`npx`/Node.js), use `run-promptfoo-local.sh` instead:
 
 ```bash
-MODEL_API_KEY=... ./run-local.sh   # or omit MODEL_API_KEY and it'll prompt
+MODEL_API_KEY=... ./run-promptfoo-local.sh job-basic.json   # or omit MODEL_API_KEY and it'll prompt
 ```
 
 It builds a `promptfoo` config from `job.json`'s `prompts`/`tests`/`model.url`, runs
@@ -204,7 +205,7 @@ token, when a request fails and is retried. Don't paste that output anywhere pub
 `install-evals.sh` prompts for the model's API key and stores it as a Secret
 (`gemma-4-api-key`) in the tenant namespace, referenced from `job.json` via
 `model.auth.secret_ref`. Leave the prompt blank to skip creating/updating the secret.
-`run-local.sh` instead takes the raw key directly via `MODEL_API_KEY` (or a prompt),
+`run-promptfoo-local.sh` instead takes the raw key directly via `MODEL_API_KEY` (or a prompt),
 since there's no cluster to hold a Secret for it.
 
 ### MLflow tracking
@@ -220,7 +221,7 @@ an MLflow tracking URI.
   results, edit the `image` field directly and rerun `./install-evals.sh <namespace>`.
 - Set `INSECURE=true` before running either script to skip TLS verification against
   a cluster with self-signed certs.
-- `run-local.sh` pins the same promptfoo CLI version (`0.123.1`) the in-cluster adapter
+- `run-promptfoo-local.sh` pins the same promptfoo CLI version (`0.123.1`) the in-cluster adapter
   image currently uses, so local and EvalHub runs score identically.
 - `job.json`'s `model.url` uses the short `/sandbox/gemma-4` path rather than the
   KServe-native `/publishers/sandbox/models/gemma-4` one (both route to the same

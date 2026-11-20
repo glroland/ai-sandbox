@@ -1,0 +1,31 @@
+{
+  "name": "mmlu-knowledge",
+  "description": "MMLU (57 subjects, generative, exact match) via the tenant lm-eval-standard provider registered by install-evals.sh",
+  "tags": [
+    "knowledge",
+    "mmlu"
+  ],
+  "model": {
+    "url": "https://maas.apps.ocp.home.glroland.com/sandbox/gemma-4/v1",
+    "name": "gemma-4",
+    "auth": {
+      "secret_ref": "gemma-4-api-key"
+    }
+  },
+  "benchmarks": [
+    {
+      "provider_id": "@lm-eval-standard",
+      "id": "mmlu_generative",
+      "parameters": {
+        "tokenizer": "RedHatAI/gemma-4-E4B-it",
+        "num_concurrent": 8
+      },
+      "pass_criteria": {
+        "threshold": 0.6
+      }
+    }
+  ],
+  "pass_criteria": {
+    "threshold": 0.6
+  }
+}

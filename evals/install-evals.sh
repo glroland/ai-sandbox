@@ -1,6 +1,6 @@
 #!/bin/bash
 # One-time setup, run as the user who'll submit evaluations: registers the promptfoo
-# provider and stores the model's API key as a Secret in the given namespace. The
+# and lm-eval-standard providers and stores the model's API key as a Secret in the given namespace. The
 # namespace must first be prepared by a cluster admin with
 # ./prepare-namespace-for-evals.sh. Re-run any time to update any of these.
 #
@@ -75,19 +75,30 @@ evalhub() {
         "$@"
 }
 
-NAME=promptfoo
-PROVIDER_ID=$(evalhub GET "/providers?name=$NAME&scope=tenant&benchmarks=false" | jq -r --arg n "$NAME" '[.items[]? | select(.name == $n)][0].resource.id // empty')
+for PROVIDER_FILE in "$SCRIPT_DIR/provider.json" "$SCRIPT_DIR/provider-lm-eval.json"; do
+    NAME=$(jq -r .name "$PROVIDER_FILE")
+    PROVIDER_ID=$(evalhub GET "/providers?name=$NAME&scope=tenant&benchmarks=false" | jq -r --arg n "$NAME" '[.items[]? | select(.name == $n)][0].resource.id // empty')
 
-if [ -n "$PROVIDER_ID" ]; then
-    echo "Updating provider '$NAME' ($PROVIDER_ID)"
-    evalhub PUT "/providers/$PROVIDER_ID" -d @"$SCRIPT_DIR/provider.json" > /dev/null
+    if [ -n "$PROVIDER_ID" ]; then
+        echo "Updating provider '$NAME' ($PROVIDER_ID)"
+        evalhub PUT "/providers/$PROVIDER_ID" -d @"$PROVIDER_FILE" > /dev/null
+    else
+        PROVIDER_ID=$(evalhub POST "/providers" -d @"$PROVIDER_FILE" | jq -r .resource.id)
+        echo "Created provider '$NAME' ($PROVIDER_ID)"
+    fi
+done
+
+MODEL_API_KEY=
+if oc get secret "$MODEL_SECRET" -n "$EVALHUB_TENANT" > /dev/null 2>&1; then
+    read -r -p "Secret '$MODEL_SECRET' already exists. Use existing? [Y/n] " USE_EXISTING
+    case "$USE_EXISTING" in
+        [nN]*) read -r -s -p "Model API key for secret '$MODEL_SECRET': " MODEL_API_KEY; echo ;;
+        *) echo "Keeping existing secret '$MODEL_SECRET'" ;;
+    esac
 else
-    PROVIDER_ID=$(evalhub POST "/providers" -d @"$SCRIPT_DIR/provider.json" | jq -r .resource.id)
-    echo "Created provider '$NAME' ($PROVIDER_ID)"
+    read -r -s -p "Model API key for secret '$MODEL_SECRET' (leave blank to skip): " MODEL_API_KEY
+    echo
 fi
-
-read -r -s -p "Model API key for secret '$MODEL_SECRET' (leave blank to skip): " MODEL_API_KEY
-echo
 if [ -n "$MODEL_API_KEY" ]; then
     oc create secret generic "$MODEL_SECRET" -n "$EVALHUB_TENANT" \
         --from-literal=api-key="$MODEL_API_KEY" \
