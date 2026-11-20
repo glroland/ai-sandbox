@@ -3,3 +3,4 @@
 .eval-ifeval-local-cache/
 .eval-mmlu-local/
 .eval-mmlu-local-cache/
+.eval-notebook-*
