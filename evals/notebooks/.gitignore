@@ -1,0 +1,6 @@
+# Local settings and secrets
+.env
+
+# Notebook run output
+.eval-notebook-*
+.ipynb_checkpoints/
