@@ -9,3 +9,15 @@ OPENAI_API_KEY=
 
 # Name of the model to evaluate, exactly as the endpoint knows it
 OPENAI_MODEL=your-model-name
+
+# --- Optional: corporate proxy (leave commented out for a direct connection) ---
+# Used for everything the notebooks download or call: uv/PyPI, Hugging Face datasets, npm,
+# and the model endpoint itself. Include credentials if needed: http://user:pass@host:3128
+# PROXY_URL=http://proxy.example.com:3128
+
+# Hosts that must NOT go through the proxy, comma-separated (e.g. an in-network model endpoint).
+# NO_PROXY=localhost,127.0.0.1,.internal.example.com
+
+# Path to a PEM file with your company's root CA, if the proxy re-signs HTTPS traffic
+# (symptoms: "certificate verify failed" / "unable to get local issuer certificate").
+# CA_BUNDLE=/path/to/company-ca.pem

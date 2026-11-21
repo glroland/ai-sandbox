@@ -35,6 +35,16 @@ Edit `.env`:
 
 `.env` is listed in `.gitignore`, so your key is never committed. If there is no `.env` file, each notebook asks for these three values when you run it.
 
+**Behind a proxy?** Optionally add these to `.env` (see `dot_env.template`); they are applied to `uv`, Python, Hugging Face dataset downloads, `npm`/`npx`, promptfoo and the model calls:
+
+| Variable | Meaning |
+|---|---|
+| `PROXY_URL` | Proxy for HTTP and HTTPS traffic, e.g. `http://proxy.example.com:3128` (may include `user:pass@`) |
+| `NO_PROXY` | Comma-separated hosts that bypass the proxy, e.g. an in-network model endpoint |
+| `CA_BUNDLE` | PEM file with your company root CA, if the proxy re-signs HTTPS traffic |
+
+lm-evaluation-harness 0.4.12 ignores proxy settings for its concurrent model requests, so the benchmark notebooks write a tiny `sitecustomize.py` into `.eval-notebook-proxy-patch/` (git-ignored) that makes it honor them. Nothing is patched when `PROXY_URL` is empty.
+
 > Tip: to find the model name, run `curl $OPENAI_BASE_URL/models` (add `-H "Authorization: Bearer $OPENAI_API_KEY"` if you use a key).
 
 ## 3. Run a notebook
@@ -62,5 +72,6 @@ Runs write results to `.eval-notebook-*` files in this folder (git-ignored). For
 
 - **`uvx` / `npx` not found** — install `uv` or Node.js (see prerequisites).
 - **Connection or 401/403 errors** — check `OPENAI_BASE_URL` and `OPENAI_API_KEY` in `.env`; the URL must be reachable from your machine.
+- **Behind a proxy / downloads time out** — set `PROXY_URL` (and `NO_PROXY` for hosts that must be reached directly) in `.env`. `certificate verify failed` errors usually mean the proxy re-signs HTTPS; set `CA_BUNDLE`.
 - **Model not found** — `OPENAI_MODEL` must match the name the endpoint serves.
 - **Run interrupted** — re-run the "Run" cell; the lm-evaluation-harness notebooks resume from where they stopped.
