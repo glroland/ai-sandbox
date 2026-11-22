@@ -6,8 +6,11 @@ JSON) and draws charts that go well beyond a single PASS/FAIL number: confidence
 per-category breakdowns, failure analysis and run statistics.
 
 Only matplotlib is needed; it is installed on first use if missing.
+
+Every report_*() function also saves what it showed (charts and text) as a standalone HTML page in a
+folder named after the model, next to this file: <model name>/<benchmark>.html.
 """
-import json, re, statistics, subprocess, sys, time
+import base64, functools, html, io, json, os, re, statistics, subprocess, sys, time
 from collections import Counter, defaultdict
 from pathlib import Path
 from urllib.parse import urlparse
@@ -42,6 +45,8 @@ def _plt():
         "figure.dpi": 110, "legend.frameon": False,
     })
     import matplotlib.pyplot as plt
+    if not getattr(plt.show, "_records", False):
+        plt.show = _recording_show(plt.show)
     return plt
 
 
@@ -794,3 +799,76 @@ def show_scorecard():
     for d in items:
         print(f"  {d['title']:<14} {pct(d['score']):>6}  "
               f"{'PASS' if d['score'] >= d['threshold'] else 'FAIL'}  (n={d['n']:,}, took {_dur(d['seconds'])})")
+
+
+# ---------------------------------------------------------------- saving each report to <model name>/
+_PARTS = None  # while a report_*() runs: ordered ("text", str) / ("img", base64 png) pieces of what it showed
+
+
+def _recording_show(show):
+    def wrapper(*a, **kw):
+        if _PARTS is not None:
+            import matplotlib.pyplot as plt
+            for num in plt.get_fignums():
+                buf = io.BytesIO()
+                plt.figure(num).savefig(buf, format="png", dpi=110, bbox_inches="tight")
+                _PARTS.append(("img", base64.b64encode(buf.getvalue()).decode()))
+        return show(*a, **kw)
+    wrapper._records = True
+    return wrapper
+
+
+class _Tee:
+    """Passes writes through to the notebook's stdout and keeps a copy in _PARTS."""
+    def __init__(self, out):
+        self.out = out
+
+    def write(self, text):
+        if text:
+            if _PARTS and _PARTS[-1][0] == "text":
+                _PARTS[-1] = ("text", _PARTS[-1][1] + text)
+            else:
+                _PARTS.append(("text", text))
+        return self.out.write(text)
+
+    def __getattr__(self, name):
+        return getattr(self.out, name)
+
+
+def _report_folder(model):
+    return Path(__file__).resolve().parent / (re.sub(r"[^\w.\-]+", "_", model).strip("._") or "unknown-model")
+
+
+def _recorded(name):
+    """Decorator: run a report_*() function, then write everything it showed to <model>/<name>.html."""
+    def deco(fn):
+        @functools.wraps(fn)
+        def wrapper(*a, **kw):
+            global _PARTS
+            model = os.environ.get("OPENAI_MODEL") or "unknown-model"
+            _PARTS, real_stdout = [], sys.stdout
+            sys.stdout = _Tee(real_stdout)
+            try:
+                result = fn(*a, **kw)
+            finally:
+                sys.stdout, parts, _PARTS = real_stdout, _PARTS, None
+            body = "".join(f"<pre>{html.escape(v)}</pre>" if k == "text" else f'<img src="data:image/png;base64,{v}">'
+                           for k, v in parts)
+            folder = _report_folder(model)
+            folder.mkdir(exist_ok=True)
+            out = folder / f"{name}.html"
+            out.write_text(
+                "<!doctype html><meta charset=utf-8>"
+                f"<title>{html.escape(name)} - {html.escape(model)}</title>"
+                "<style>body{font:14px system-ui;max-width:1100px;margin:2em auto;padding:0 1em}"
+                "pre{white-space:pre-wrap;font:12.5px ui-monospace,monospace}img{max-width:100%}</style>"
+                f"<h1>{html.escape(name)}</h1><p>Model: <b>{html.escape(model)}</b> &middot; "
+                f"{time.strftime('%Y-%m-%d %H:%M:%S')}</p>{body}", encoding="utf-8")
+            print(f"Report saved to {out}")
+            return result
+        return wrapper
+    return deco
+
+
+for _name in [n for n in list(globals()) if n.startswith("report_")]:
+    globals()[_name] = _recorded(_name[len("report_"):])(globals()[_name])

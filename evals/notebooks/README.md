@@ -96,6 +96,10 @@ Options you may want to change, all in the configuration cell:
 
 Start with `LIMIT = 10` to confirm your connection works; the full benchmarks can take a long time.
 
+## Saved reports
+
+Each notebook's dashboard (charts and text) is also saved as a standalone page, `<model name>/<benchmark>.html`, in this folder — e.g. `my-model/mmlu.html`. The folder is named after `OPENAI_MODEL` (characters such as `/` become `_`), so runs of different models sit side by side and a re-run replaces that benchmark's page.
+
 ## Output files
 
 Runs write results to `.eval-notebook-*` files in this folder (git-ignored). For the lm-evaluation-harness notebooks, `samples_*.jsonl` shows each question and the model's answer, which is useful for seeing what it got wrong; the dashboards are built from these files.
