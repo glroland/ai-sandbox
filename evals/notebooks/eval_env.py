@@ -68,13 +68,24 @@ def apply_proxy():
 
 
 def setup():
-    """Load the model endpoint settings, apply the proxy settings, return (url, model, api_key)."""
-    if load_env():
-        print("Loaded settings from .env")
+    """Load the model endpoint settings, apply the proxy settings, return (url, model, api_key).
+
+    If EVAL_OVERRIDE_URL / EVAL_OVERRIDE_MODEL / EVAL_OVERRIDE_API_KEY are set (run-all.ipynb does
+    this), they win over the .env file and nothing is prompted for."""
+    override = {k: os.environ[f"EVAL_OVERRIDE_{v}"] for k, v in
+                (("OPENAI_BASE_URL", "URL"), ("OPENAI_MODEL", "MODEL"), ("OPENAI_API_KEY", "API_KEY"))
+                if f"EVAL_OVERRIDE_{v}" in os.environ}
+    loaded = load_env()
+    if override:
+        os.environ.update(override)
+        print("Using model settings from run-all.ipynb (overriding .env)")
+    if loaded:
+        if not override:
+            print("Loaded settings from .env")
         missing = [k for k in ("OPENAI_BASE_URL", "OPENAI_MODEL") if not os.environ.get(k)]
         if missing:
             raise SystemExit(f"Please set {', '.join(missing)} in .env (see dot_env.template)")
-    else:
+    elif not override:
         print("No .env file found (copy dot_env.template to .env to skip these prompts)")
         os.environ["OPENAI_BASE_URL"] = input("Model base URL (e.g. https://host/v1): ").strip()
         os.environ["OPENAI_MODEL"] = input("Model name: ").strip()

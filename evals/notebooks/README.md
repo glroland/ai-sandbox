@@ -12,6 +12,7 @@ Small, self-contained Jupyter notebooks that evaluate a model served on Red Hat 
 | `run-multilingual.ipynb` | **Many languages** — maths (MGSM, 11 languages) and knowledge (Global-MMLU Lite, 15 languages, with culturally sensitive questions marked) | lm-evaluation-harness (custom tasks) |
 | `run-toolcalling.ipynb` | **Tool / function calling** — 41 cases: right tool, exact arguments, parallel and multi-step calls, not calling when unneeded, asking when information is missing | built-in test suite, no extra tools |
 | `run-promptfoo.ipynb` | **Your own prompt tests** — a handful of sample questions with simple pass/fail checks, meant to be copied and adapted | promptfoo |
+| `run-all.ipynb` | **Runs every notebook above** for one model, set in its config cell (overrides `.env`), and saves each executed report to a folder named after the model | nbconvert |
 | `run-scorecard.ipynb` | **One-page summary** of the latest run of every notebook above | — |
 
 Everything runs on your own machine. No OpenShift login and no EvalHub are needed — only network access to the model.
@@ -62,6 +63,10 @@ Open a notebook and run the cells top to bottom. Each one follows the same steps
 2. **Run** — sends the questions to your model and streams progress.
 3. **Score** — prints the score and **PASS** or **FAIL**.
 4. **Results dashboard** — charts and failure analysis built from the run's output files (see below).
+
+### Run everything at once
+
+Open `run-all.ipynb`, set `MODEL_URL`, `MODEL_NAME` and `MODEL_API_KEY` in its configuration cell, and run it. Those values override `.env` for every notebook. Each notebook's executed copy (with charts), an HTML version and a log are saved in `<model name>/` next to the notebooks, plus a `summary.json` and a scorecard for that model. Edit `NOTEBOOKS` to skip some, and `RESULTS_ROOT` to save elsewhere. Proxy settings still come from `.env`.
 
 ## What the dashboards show
 
