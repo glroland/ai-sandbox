@@ -19,7 +19,7 @@ There's no custom code or image to build. It uses the community
 | `run-ifeval-local.sh` | Runs IFEval locally with lm-evaluation-harness against the model's chat endpoint, with the chat template applied (see below) |
 | `run-mmlu-local.sh` | Runs MMLU (generative, exact match) locally with lm-evaluation-harness against the model's chat endpoint, with the chat template applied — no EvalHub, no OpenShift |
 | `run-promptfoo-local.sh` | Runs the same prompt/test straight against the model with the local `promptfoo` CLI — no EvalHub, no OpenShift |
-| `run-*-local.ipynb` | Self-contained Jupyter notebooks for promptfoo, IFEval, MMLU and MATH — the local runners above as notebooks. Endpoint, key, task and threshold sit in one configuration cell near the top; no job file needed |
+| `run-*-local.ipynb` | Self-contained Jupyter notebooks for promptfoo, IFEval, MMLU, MATH, TruthfulQA, reasoning, multilingual and tool calling, plus a scorecard — the local runners above as notebooks. Endpoint, key, task and threshold sit in one configuration cell near the top; no job file needed |
 
 All three scripts take the tenant namespace as a required first argument. The EvalHub
 host and the namespace EvalHub runs in are set at the top of each script (override by

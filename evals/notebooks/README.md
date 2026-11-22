@@ -6,6 +6,11 @@ Small, self-contained Jupyter notebooks that evaluate a model served on Red Hat 
 |---|---|---|
 | `run-ifeval.ipynb` | **Instruction following** — 541 prompts such as "use no commas" or "write at least 300 words", checked by code | lm-evaluation-harness |
 | `run-math.ipynb` | **Hard competition maths** (MATH Level 5, 1,324 problems) | lm-evaluation-harness |
+| `run-mmlu.ipynb` | **Broad knowledge** across 57 subjects (MMLU, 14,042 questions) | lm-evaluation-harness |
+| `run-truthfulqa.ipynb` | **Truthfulness** — 817 questions built to trigger popular myths and falsehoods | lm-evaluation-harness (custom task) |
+| `run-reasoning.ipynb` | **Multi-step reasoning** — GSM8K word problems and the 27 Big-Bench Hard logic tasks | lm-evaluation-harness |
+| `run-multilingual.ipynb` | **Many languages** — maths (MGSM, 11 languages) and knowledge (Global-MMLU Lite, 15 languages, with culturally sensitive questions marked) | lm-evaluation-harness (custom tasks) |
+| `run-toolcalling.ipynb` | **Tool / function calling** — 41 cases: right tool, exact arguments, parallel and multi-step calls, not calling when unneeded, asking when information is missing | built-in test suite, no extra tools |
 | `run-promptfoo.ipynb` | **Your own prompt tests** — a handful of sample questions with simple pass/fail checks, meant to be copied and adapted | promptfoo |
 | `run-scorecard.ipynb` | **One-page summary** of the latest run of every notebook above | — |
 
@@ -14,9 +19,10 @@ Everything runs on your own machine. No OpenShift login and no EvalHub are neede
 ## 1. Prerequisites
 
 - Python with Jupyter (JupyterLab, VS Code, or any notebook client)
-- [`uv`](https://docs.astral.sh/uv/) — for the two lm-evaluation-harness notebooks (`ifeval`, `math`)
+- [`uv`](https://docs.astral.sh/uv/) — for the lm-evaluation-harness notebooks (`ifeval`, `math`, `mmlu`, `truthfulqa`, `reasoning`, `multilingual`)
 - [Node.js](https://nodejs.org/) — for the promptfoo notebook only
-- An OpenAI-compatible model endpoint (for example a model served with vLLM on OpenShift AI)
+- An OpenAI-compatible model endpoint (for example a model served with vLLM on OpenShift AI). `run-toolcalling` also needs **tool calling enabled** on the server (for vLLM: `--enable-auto-tool-choice` and a `--tool-call-parser` for the model); the notebook checks and tells you if it is not
+- Access to Hugging Face for the benchmark datasets (the lm-evaluation-harness notebooks download them on first use)
 
 The evaluation tools themselves are downloaded automatically the first time a notebook runs.
 
@@ -59,23 +65,27 @@ Open a notebook and run the cells top to bottom. Each one follows the same steps
 
 ## What the dashboards show
 
-A single score hides most of what a run learned. Each notebook ends with a dashboard drawn by `eval_report.py` (it sits next to the notebooks and needs only matplotlib, which is installed automatically on first use). Every score carries a 95% confidence interval, so you can tell a real difference from noise.
+A single score hides most of what a run learned. Each notebook ends with a dashboard drawn by `eval_report.py` (it sits next to the notebooks, as do `tool_eval.py` — the tool-calling runner — and the `lm_eval_tasks/` folder of custom benchmark definitions and needs only matplotlib, which is installed automatically on first use). Every score carries a 95% confidence interval, so you can tell a real difference from noise.
 
 | Notebook | Beyond the headline score |
 |---|---|
 | `run-ifeval` | Strict vs. loose scoring (formatting near-misses), pass-rate as prompts carry more instructions, accuracy for each of the instruction types, and the worst failed prompts |
 | `run-math` | Accuracy by subject, solution length vs. outcome, and whether each miss was a **wrong answer** or a solution that **ran out of tokens** before finishing |
 | `run-mmlu` | Subject areas, all 57 subjects ranked against the random-guess line, a confusion matrix of answer letters, position bias, replies that were not a clean letter, and example misses |
+| `run-truthfulqa` | Accuracy vs. the random-guess line, adversarial vs. non-adversarial questions, accuracy by topic, and each falsehood the model chose next to the true answer |
+| `run-reasoning` | Lenient vs. strict scoring, accuracy against the length of the model's working, all 27 BBH tasks ranked, and examples of misses |
+| `run-multilingual` | Every language with confidence intervals, the gap to English, culturally sensitive vs. agnostic knowledge, and a check for answers that could not be read (e.g. numbers in a local script) |
+| `run-toolcalling` | Pass-rate by skill, how failures happened (wrong tool, wrong arguments, guessing instead of asking, …), every case at a glance, and what was asked / expected / done for each failure |
 | `run-promptfoo` | Latency, token use and output speed per test, every assertion on every test, and finish reasons |
 | `run-scorecard` | Each benchmark's latest score, confidence interval and pass mark side by side |
 
-Each run also records its result in `.eval-notebook-scorecard.json`, which the scorecard notebook reads.
+Each run also records its result in `.eval-notebook-scorecard.json`, which the scorecard notebook reads. `run-toolcalling` also writes its raw per-case results to `.eval-notebook-toolcalling.json`.
 
 Options you may want to change, all in the configuration cell:
 
 - `THRESHOLD` — the minimum score that counts as a PASS
-- `LIMIT` — set to e.g. `10` for a quick test run; `None` runs the full benchmark (`ifeval`, `math`)
-- `MAX_GEN_TOKS` — the most tokens the model may write per answer (`run-math` only, default `4096`). The benchmark's own default of 1024 cuts off many worked solutions before the final answer and scores them wrong; set `None` to restore it
+- `LIMIT` — set to e.g. `10` for a quick test run; `None` runs the full benchmark (all the lm-evaluation-harness notebooks; for those with several tasks or languages it applies to each)
+- `MAX_GEN_TOKS` / `MGSM_MAX_GEN_TOKS` — the most tokens the model may write per answer (`run-math` default `4096`; `run-reasoning` and the MGSM half of `run-multilingual` default `2048`). The benchmark's own default of 1024 cuts off many worked solutions before the final answer and scores them wrong; set `None` to restore it
 - `NUM_CONCURRENT` / `CONCURRENCY` — how many requests are sent to the model at once
 - `TESTS` — your own prompts and checks (`run-promptfoo.ipynb`)
 

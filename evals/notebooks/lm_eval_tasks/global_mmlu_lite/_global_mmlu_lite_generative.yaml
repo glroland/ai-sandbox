@@ -1,0 +1,23 @@
+group: global_mmlu_lite_generative
+task:
+  - global_mmlu_lite_generative_ar
+  - global_mmlu_lite_generative_bn
+  - global_mmlu_lite_generative_de
+  - global_mmlu_lite_generative_en
+  - global_mmlu_lite_generative_es
+  - global_mmlu_lite_generative_fr
+  - global_mmlu_lite_generative_hi
+  - global_mmlu_lite_generative_id
+  - global_mmlu_lite_generative_it
+  - global_mmlu_lite_generative_ja
+  - global_mmlu_lite_generative_ko
+  - global_mmlu_lite_generative_pt
+  - global_mmlu_lite_generative_sw
+  - global_mmlu_lite_generative_yo
+  - global_mmlu_lite_generative_zh
+aggregate_metric_list:
+  - metric: exact_match
+    aggregation: mean
+    weight_by_size: true
+metadata:
+  version: 1.0

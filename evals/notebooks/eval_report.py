@@ -447,6 +447,332 @@ def report_promptfoo(output, threshold):
                                   "seconds": (stats.get("durationMs") or 0) / 1000})
 
 
+# ---------------------------------------------------------------- shared by the newer reports
+LANGUAGES = {"ar": "Arabic", "bn": "Bengali", "de": "German", "en": "English", "es": "Spanish", "fr": "French",
+             "hi": "Hindi", "id": "Indonesian", "it": "Italian", "ja": "Japanese", "ko": "Korean",
+             "pt": "Portuguese", "ru": "Russian", "sw": "Swahili", "te": "Telugu", "th": "Thai",
+             "yo": "Yoruba", "zh": "Chinese"}
+
+
+def _secs(res):
+    return float(res.get("total_evaluation_time_seconds") or 0)
+
+
+def _rows(samples, flt=None):
+    """Sample rows, optionally only those scored by one named filter (lm-eval repeats rows per filter)."""
+    return [x for x in samples if flt is None or x.get("filter") == flt]
+
+
+def _acc(rows):
+    k = sum(bool(x["exact_match"]) for x in rows)
+    return k, len(rows)
+
+
+def _cap(res):
+    return next(iter(res["configs"].values()))["generation_kwargs"].get("max_gen_toks")
+
+
+# ---------------------------------------------------------------- TruthfulQA
+def report_truthfulqa(output, threshold):
+    plt = _plt()
+    res = _load_results(output)
+    samples = next(iter(_load_samples(output).values()))
+    n = len(samples); k = sum(bool(x["exact_match"]) for x in samples); score = k / n
+    secs, mname = _secs(res), res.get("model_name", "?")
+    chance = statistics.mean(1 / x["doc"]["n_options"] for x in samples)
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+    def pred(x):
+        p = str(x["filtered_resps"][0]).strip()
+        return p if len(p) == 1 and p in letters else "?"
+    bare = sum(pred(x) != "?" for x in samples)
+
+    _card(plt, "TruthfulQA · common falsehoods", f"{mname} @ {_host(res['config']['model_args'].get('base_url'))}",
+          pct(score), score >= threshold, threshold, wilson(k, n),
+          [("Questions", f"{n}"), ("Wall-clock time", _dur(secs)),
+           ("Random guessing would score", pct(chance)), ("Replied with a clean letter", pct(bare / n)),
+           ("lm-eval", res.get("lm_eval_version", "?"))])
+
+    by_type = defaultdict(lambda: [0, 0])
+    by_opts = defaultdict(lambda: [0, 0])
+    by_cat = defaultdict(lambda: [0, 0])
+    for x in samples:
+        d = x["doc"]; ok = bool(x["exact_match"])
+        for table, key in ((by_type, d.get("qtype", "Unknown")), (by_cat, d.get("category", "Unknown")),
+                           (by_opts, "2–3 options" if d["n_options"] <= 3 else "4 options" if d["n_options"] == 4
+                            else "5–6 options" if d["n_options"] <= 6 else "7+ options")):
+            table[key][0] += ok; table[key][1] += 1
+
+    fig, (a, b) = plt.subplots(1, 2, figsize=(11, 3.2))
+    rows = [("All questions", (k, n))] + [(f"{t} questions", tuple(v)) for t, v in sorted(by_type.items()) if t != "Unknown"]
+    ci = [wilson(*v) for _, v in rows]
+    _hbar(a, [r for r, _ in rows], [v[0] / v[1] for _, v in rows], [c[0] for c in ci], [c[1] for c in ci],
+          ns=[v[1] for _, v in rows], colours=[BLUE] + [ORANGE if r.startswith("Adv") else "#7fb0ec" for r, _ in rows[1:]],
+          ref=chance, ref_label="random guess", xlim=(0, 1.22))
+    a.set_title("Adversarial = written to fool models")
+    order = [o for o in ("2–3 options", "4 options", "5–6 options", "7+ options") if o in by_opts]
+    ci = [wilson(*by_opts[o]) for o in order]
+    _hbar(b, order, [by_opts[o][0] / by_opts[o][1] for o in order], [c[0] for c in ci], [c[1] for c in ci],
+          ns=[by_opts[o][1] for o in order], xlim=(0, 1.22))
+    b.set_title("Accuracy by number of options")
+    fig.tight_layout(); plt.show()
+
+    big = {c: v for c, v in by_cat.items() if v[1] >= 8}
+    other = [0, 0]
+    for c, v in by_cat.items():
+        if c not in big:
+            other[0] += v[0]; other[1] += v[1]
+    if other[1]:
+        big["Other (small categories)"] = other
+    order = sorted(big, key=lambda c: -big[c][0] / big[c][1])
+    ci = [wilson(*big[c]) for c in order]
+    fig, ax = plt.subplots(figsize=(11, max(2.4, 0.28 * len(order) + 1.2)))
+    _hbar(ax, order, [big[c][0] / big[c][1] for c in order], [c[0] for c in ci], [c[1] for c in ci], ns=[big[c][1] for c in order],
+          colours=[ORANGE if big[c][0] / big[c][1] < score - 0.15 else BLUE for c in order], ref=score, ref_label=f"overall {pct(score)}",
+          xlim=(0, 1.22), fs=8.5)
+    ax.set_title("Accuracy by topic — orange: >15 points below overall")
+    fig.tight_layout(); plt.show()
+
+    wrong = [x for x in samples if not x["exact_match"] and pred(x) != "?"]
+    wrong.sort(key=lambda x: x["doc"].get("qtype") != "Adversarial")
+    print(f"{n - k} questions missed ({len(wrong)} picked a false statement, {n - k - len(wrong)} gave no clean letter). Examples:\n")
+    for x in wrong[:6]:
+        d = x["doc"]
+        opt = {ln[0]: ln[3:] for ln in d["options"].split("\n")}
+        print(f"  ✘ [{d.get('category', '?')}] {_short(d['question'], 150)}")
+        print(f"      model chose  {pred(x)}: {_short(opt.get(pred(x), ''), 90)}")
+        print(f"      true answer  {x['target']}: {_short(opt.get(x['target'], ''), 90)}\n")
+    _save_scorecard("truthfulqa", {"title": "TruthfulQA", "what": "resists falsehoods", "score": score, "ci": wilson(k, n),
+                                   "threshold": threshold, "n": n, "model": mname, "seconds": secs})
+
+
+# ---------------------------------------------------------------- reasoning (GSM8K + BBH)
+def report_reasoning(gsm_output, bbh_output, threshold):
+    plt = _plt()
+    gres, bres = _load_results(gsm_output), _load_results(bbh_output)
+    gs = [x for t in _load_samples(gsm_output).values() for x in t]
+    bt = _load_samples(bbh_output)
+    bs = [x for t in bt.values() for x in t]
+    FLEX, STRICT = "flexible-extract", "strict-match"
+    g_flex, g_strict = _acc(_rows(gs, FLEX)), _acc(_rows(gs, STRICT))
+    b_flex = _acc(_rows(bs, FLEX))
+    gsm, bbh = g_flex[0] / g_flex[1], b_flex[0] / b_flex[1]
+    score = (gsm + bbh) / 2
+    lo = (wilson(*g_flex)[0] + wilson(*b_flex)[0]) / 2; hi = (wilson(*g_flex)[1] + wilson(*b_flex)[1]) / 2
+    secs = _secs(gres) + _secs(bres); mname = gres.get("model_name", "?")
+    lens = [len(x["resps"][0][0]) for x in _rows(gs, FLEX) + _rows(bs, FLEX)]
+    _card(plt, "Reasoning · GSM8K + Big-Bench Hard", f"{mname} @ {_host(gres['config']['model_args'].get('base_url'))}",
+          pct(score), score >= threshold, threshold, (lo, hi),
+          [("Problems", f"{g_flex[1]:,} GSM8K + {b_flex[1]:,} BBH"), ("Wall-clock time", _dur(secs)),
+           ("Throughput", f"{(g_flex[1] + b_flex[1]) / secs:.2f} problems/s" if secs else "-"),
+           ("Median working", f"{statistics.median(lens):,.0f} characters"),
+           ("Token budget per answer", f"{_cap(bres)} tokens" if _cap(bres) else "-")])
+
+    fig, (a, b) = plt.subplots(1, 2, figsize=(11, 3.4), gridspec_kw={"width_ratios": [1.15, 1]})
+    rows = [("GSM8K · lenient answer match", g_flex), ("GSM8K · strict 'The answer is…'", g_strict),
+            ("BBH · lenient answer match", b_flex)]
+    ci = [wilson(*v) for _, v in rows]
+    _hbar(a, [r for r, _ in rows], [v[0] / v[1] for _, v in rows], [c[0] for c in ci], [c[1] for c in ci],
+          colours=[BLUE, "#7fb0ec", BLUE], ref=threshold, ref_label="threshold", xlim=(0, 1.15), fs=8.5)
+    a.set_title("Lenient vs. strict scoring")
+    a.text(0, 3.4, "Strict scoring wants the exact phrase \"The answer is…\"; lenient reads the final answer.", fontsize=8.5, color=INK2)
+    ranked = sorted(zip(lens, [bool(x["exact_match"]) for x in _rows(gs, FLEX) + _rows(bs, FLEX)]))
+    q = max(1, len(ranked) // 4)
+    parts = [ranked[i * q:(i + 1) * q if i < 3 else None] for i in range(4)]
+    names = ["shortest 25%", "25–50%", "50–75%", "longest 25%"]
+    vals = [sum(c for _, c in p) / len(p) for p in parts]; ci = [wilson(sum(c for _, c in p), len(p)) for p in parts]
+    _hbar(b, names, vals, [c[0] for c in ci], [c[1] for c in ci], ns=[len(p) for p in parts], colours=BLUE, xlim=(0, 1.25))
+    b.set_title("Accuracy by length of working")
+    fig.tight_layout(); plt.show()
+
+    sub = {t.replace("bbh_cot_zeroshot_", "").replace("_", " "): _acc(_rows(v, FLEX)) for t, v in bt.items()}
+    order = sorted(sub, key=lambda t: -sub[t][0] / sub[t][1]); ci = [wilson(*sub[t]) for t in order]
+    fig, ax = plt.subplots(figsize=(11, 0.27 * len(order) + 1.2))
+    _hbar(ax, order, [sub[t][0] / sub[t][1] for t in order], [c[0] for c in ci], [c[1] for c in ci], ns=[sub[t][1] for t in order],
+          colours=[ORANGE if sub[t][0] / sub[t][1] < bbh - 0.2 else BLUE for t in order], ref=bbh, ref_label=f"BBH overall {pct(bbh)}",
+          xlim=(0, 1.2), fs=8.5)
+    ax.set_title(f"All {len(order)} BBH tasks — orange: >20 points below the BBH average")
+    fig.tight_layout(); plt.show()
+
+    print(f"On GSM8K, strict scoring would have dropped {pct(g_flex[0] / g_flex[1] - g_strict[0] / g_strict[1])}: "
+          "correct answers that were not phrased as \"The answer is …\". The headline uses lenient scoring.\n")
+    miss = [x for x in _rows(bs, FLEX) if not x["exact_match"]]
+    print(f"{len(miss)} of {b_flex[1]} BBH problems missed. A few:\n")
+    for x in miss[:4]:
+        print(f"  ✘ {_short(x['doc']['input'], 150)}")
+        print(f"      expected: {_short(x['target'], 60)}    model: {_short(x['filtered_resps'][0], 60)}\n")
+    _save_scorecard("reasoning", {"title": "Reasoning", "what": "GSM8K + BBH", "score": score, "ci": (lo, hi),
+                                  "threshold": threshold, "n": g_flex[1] + b_flex[1], "model": mname, "seconds": secs})
+
+
+# ---------------------------------------------------------------- multilingual (MGSM + Global-MMLU Lite)
+def report_multilingual(mgsm_output, gmmlu_output, threshold):
+    plt = _plt()
+    mres, gres = _load_results(mgsm_output), _load_results(gmmlu_output)
+
+    def by_lang(output):
+        out = {}
+        for t, rows in _load_samples(output).items():
+            out[t.rsplit("_", 1)[1]] = rows
+        return out
+    mg, gm = by_lang(mgsm_output), by_lang(gmmlu_output)
+    macc = {l: _acc(r) for l, r in mg.items()}; gacc = {l: _acc(r) for l, r in gm.items()}
+    m_all = (sum(v[0] for v in macc.values()), sum(v[1] for v in macc.values()))
+    g_all = (sum(v[0] for v in gacc.values()), sum(v[1] for v in gacc.values()))
+    mscore, gscore = m_all[0] / m_all[1], g_all[0] / g_all[1]
+    score = (mscore + gscore) / 2
+    lo = (wilson(*m_all)[0] + wilson(*g_all)[0]) / 2; hi = (wilson(*m_all)[1] + wilson(*g_all)[1]) / 2
+    secs = _secs(mres) + _secs(gres); mname = mres.get("model_name", "?")
+    _card(plt, "Multilingual · many languages", f"{mname} @ {_host(mres['config']['model_args'].get('base_url'))}",
+          pct(score), score >= threshold, threshold, (lo, hi),
+          [("Languages", f"{len(macc)} (MGSM) · {len(gacc)} (Global-MMLU Lite)"), ("Questions", f"{m_all[1]:,} + {g_all[1]:,}"),
+           ("Wall-clock time", _dur(secs)), ("MGSM (maths word problems)", pct(mscore)), ("Global-MMLU Lite (knowledge)", pct(gscore))])
+
+    def lang_bars(ax, acc, title):
+        order = sorted(acc, key=lambda l: -acc[l][0] / acc[l][1]); ci = [wilson(*acc[l]) for l in order]
+        _hbar(ax, [LANGUAGES.get(l, l) for l in order], [acc[l][0] / acc[l][1] for l in order], [c[0] for c in ci], [c[1] for c in ci],
+              ns=[acc[l][1] for l in order], colours=[GREEN if l == "en" else BLUE for l in order], xlim=(0, 1.25), fs=8.5)
+        ax.set_title(title)
+    fig, (a, b) = plt.subplots(1, 2, figsize=(11, 0.3 * max(len(macc), len(gacc)) + 1.4))
+    lang_bars(a, macc, "Maths word problems (MGSM)"); lang_bars(b, gacc, "Knowledge (Global-MMLU Lite)")
+    fig.suptitle("Accuracy by language — green: English", x=0.01, ha="left", fontsize=10, color=INK2)
+    fig.tight_layout(); plt.show()
+
+    # Gap to English: how much does each language lose?
+    def gaps(acc):
+        if "en" not in acc:
+            return {}
+        en = acc["en"][0] / acc["en"][1]
+        return {l: 100 * (v[0] / v[1] - en) for l, v in acc.items() if l != "en"}
+    mgap, ggap = gaps(macc), gaps(gacc)
+    langs = sorted(set(mgap) | set(ggap), key=lambda l: statistics.mean([d[l] for d in (mgap, ggap) if l in d]))
+    if langs:
+        fig, ax = plt.subplots(figsize=(11, 0.34 * len(langs) + 1.4))
+        y = range(len(langs)); h = 0.38
+        ax.barh([i - h / 2 for i in y], [mgap.get(l, 0) for l in langs], height=h, color=BLUE, label="MGSM (maths)")
+        ax.barh([i + h / 2 for i in y], [ggap.get(l, 0) for l in langs], height=h, color="#7fb0ec", label="Global-MMLU Lite (knowledge)")
+        ax.set_yticks(list(y)); ax.set_yticklabels([LANGUAGES.get(l, l) for l in langs], fontsize=9); ax.invert_yaxis()
+        for i, l in enumerate(langs):
+            for off, d in ((-h / 2, mgap), (h / 2, ggap)):
+                if l in d and abs(d[l]) >= 0.5:
+                    ax.text(d[l] - 0.4, i + off, f"{d[l]:+.0f}", va="center", ha="right", fontsize=8, color=INK2)
+        ax.axvline(0, color=INK2, linewidth=1); ax.grid(axis="y", visible=False)
+        ax.xaxis.set_major_formatter(lambda v, _: f"{v:+.0f} pts"); ax.legend(loc="lower left")
+        ax.set_title("Gap to English (percentage points) — how much each language loses")
+        fig.tight_layout(); plt.show()
+
+    # Culturally sensitive vs culturally agnostic questions
+    cs = defaultdict(lambda: {"CS": [0, 0], "CA": [0, 0]})
+    for l, rows in gm.items():
+        for x in rows:
+            lab = x["doc"].get("cultural_sensitivity_label")
+            if lab in ("CS", "CA"):
+                cs[l][lab][0] += bool(x["exact_match"]); cs[l][lab][1] += 1
+    if cs:
+        order = sorted(cs, key=lambda l: -(cs[l]["CA"][0] + cs[l]["CS"][0]) / max(1, cs[l]["CA"][1] + cs[l]["CS"][1]))
+        fig, ax = plt.subplots(figsize=(11, 3.4))
+        x = range(len(order)); w = 0.38
+        ax.bar([i - w / 2 for i in x], [cs[l]["CA"][0] / max(1, cs[l]["CA"][1]) for l in order], width=w, color=BLUE, label="culturally agnostic")
+        ax.bar([i + w / 2 for i in x], [cs[l]["CS"][0] / max(1, cs[l]["CS"][1]) for l in order], width=w, color=ORANGE, label="culturally sensitive")
+        ax.set_xticks(list(x)); ax.set_xticklabels([LANGUAGES.get(l, l) for l in order], rotation=45, ha="right", fontsize=8.5)
+        ax.yaxis.set_major_formatter(lambda v, _: f"{100 * v:.0f}%"); ax.set_ylim(0, 1.05); ax.grid(axis="x", visible=False); ax.legend(loc="lower left")
+        ca = [sum(cs[l]["CA"][i] for l in cs) for i in (0, 1)]; cso = [sum(cs[l]["CS"][i] for l in cs) for i in (0, 1)]
+        gap = ca[0] / ca[1] - cso[0] / cso[1]
+        verdict = "culture-specific questions are harder" if gap > 0.02 else "no clear gap between the two kinds"
+        ax.set_title(f"Culturally agnostic {pct(ca[0] / ca[1])} vs. sensitive {pct(cso[0] / cso[1])} — {verdict}")
+        fig.tight_layout(); plt.show()
+
+    # Format check: answers that could not be read (e.g. local-script digits)
+    problems = []
+    for name, tasks in (("MGSM", mg), ("Global-MMLU Lite", gm)):
+        for l, rows in tasks.items():
+            bad = sum(1 for x in rows if str(x["filtered_resps"][0]).strip() in ("[invalid]", ""))
+            if bad / len(rows) > 0.02:
+                problems.append((name, LANGUAGES.get(l, l), bad, len(rows)))
+    if problems:
+        print("⚠ Answers that could not be read (scored wrong) — worth a look, these may be formatting rather than ability:")
+        for name, lang, bad, tot in sorted(problems, key=lambda p: -p[2] / p[3]):
+            print(f"   {name:<17} {lang:<11} {bad}/{tot} ({pct(bad / tot)})")
+    else:
+        print("✔ Every language's answers could be read (under 2% unparseable).")
+    worst = sorted(macc, key=lambda l: macc[l][0] / macc[l][1])[:2] + sorted(gacc, key=lambda l: gacc[l][0] / gacc[l][1])[:2]
+    print("\nWeakest languages:", ", ".join(dict.fromkeys(LANGUAGES.get(l, l) for l in worst)))
+    _save_scorecard("multilingual", {"title": "Multilingual", "what": "MGSM + Global-MMLU Lite", "score": score, "ci": (lo, hi),
+                                     "threshold": threshold, "n": m_all[1] + g_all[1], "model": mname, "seconds": secs})
+
+
+# ---------------------------------------------------------------- tool / function calling
+def report_toolcalling(results_file, threshold, model="?"):
+    from tool_eval import FAILURES
+    plt = _plt()
+    rs = json.loads(Path(results_file).read_text())
+    n = len(rs); k = sum(r["passed"] for r in rs); score = k / n
+    calls = [c for r in rs for c in r["calls"]]
+    valid = sum(1 for c in calls if not c["errors"])
+    lat = [r["latency_ms"] for r in rs]; toks = [r["prompt_tokens"] + r["completion_tokens"] for r in rs]
+    cats = list(dict.fromkeys(r["category"] for r in rs))
+    _card(plt, "Tool calling · does it use tools correctly?", model, pct(score), score >= threshold, threshold, wilson(k, n),
+          [("Test cases", f"{n} in {len(cats)} categories"), ("Tool calls made", f"{len(calls)}"),
+           ("Calls with valid arguments", pct(valid / len(calls)) if calls else "-"),
+           ("Median time per case", f"{statistics.median(lat) / 1000:.1f} s"), ("Median tokens per case", f"{statistics.median(toks):,.0f}")])
+
+    by = defaultdict(lambda: [0, 0])
+    for r in rs:
+        by[r["category"]][0] += r["passed"]; by[r["category"]][1] += 1
+    fails = Counter(r["code"] for r in rs if not r["passed"])
+    fig, (a, b) = plt.subplots(1, 2, figsize=(11, 0.42 * len(cats) + 1.6), gridspec_kw={"width_ratios": [1.2, 1]})
+    order = sorted(cats, key=lambda c: -by[c][0] / by[c][1]); ci = [wilson(*by[c]) for c in order]
+    _hbar(a, order, [by[c][0] / by[c][1] for c in order], [c[0] for c in ci], [c[1] for c in ci], ns=[by[c][1] for c in order],
+          colours=[ORANGE if by[c][0] < by[c][1] else BLUE for c in order], xlim=(0, 1.3), fs=9)
+    a.set_title("Pass-rate by skill (whiskers are wide: few cases each)")
+    if fails:
+        codes = [c for c in FAILURES if fails.get(c)]
+        b.barh(range(len(codes)), [fails[c] for c in codes], color=ORANGE, height=0.6)
+        b.set_yticks(range(len(codes))); b.set_yticklabels([FAILURES[c] for c in codes], fontsize=9); b.invert_yaxis()
+        for i, c in enumerate(codes):
+            b.text(fails[c] + 0.05, i, str(fails[c]), va="center", fontsize=9, color=INK2)
+        b.xaxis.set_major_locator(plt.MaxNLocator(integer=True)); b.set_xlim(0, max(fails.values()) + 1); b.grid(axis="y", visible=False)
+        b.set_title("How the failures happened")
+    else:
+        b.axis("off"); b.text(0.5, 0.5, "No failures", ha="center", va="center", fontsize=16, color=GREEN, fontweight="bold")
+    fig.tight_layout(); plt.show()
+
+    # Every case at a glance
+    width = max(by[c][1] for c in cats)
+    fig, ax = plt.subplots(figsize=(11, 0.62 * len(cats) + 0.8))
+    for i, c in enumerate(cats):
+        for j, r in enumerate([r for r in rs if r["category"] == c]):
+            ax.add_patch(plt.Rectangle((j, i), 0.94, 0.84, color=BLUE if r["passed"] else ORANGE))
+            ax.text(j + 0.47, i + 0.42, r["id"].replace("-", "\n", 1), ha="center", va="center", color="white", fontsize=6.5)
+    ax.set_xlim(0, width); ax.set_ylim(len(cats), 0); ax.set_yticks([i + 0.42 for i in range(len(cats))]); ax.set_yticklabels(cats, fontsize=9)
+    ax.set_xticks([]); ax.grid(False); [sp.set_visible(False) for sp in ax.spines.values()]
+    ax.set_title("Every test case — blue passed, orange failed")
+    fig.tight_layout(); plt.show()
+
+    cat_lat = {c: statistics.median(r["latency_ms"] for r in rs if r["category"] == c) / 1000 for c in cats}
+    fig, ax = plt.subplots(figsize=(11, 0.34 * len(cats) + 1.2))
+    order = sorted(cats, key=lambda c: -cat_lat[c])
+    ax.barh(range(len(order)), [cat_lat[c] for c in order], color=BLUE, height=0.6)
+    ax.set_yticks(range(len(order))); ax.set_yticklabels(order, fontsize=9); ax.invert_yaxis(); ax.grid(axis="y", visible=False)
+    ax.set_title("Median time per case (seconds) — multi-step cases make several model calls"); ax.set_xlabel("seconds")
+    fig.tight_layout(); plt.show()
+
+    bad = [r for r in rs if not r["passed"]]
+    if bad:
+        print(f"{len(bad)} of {n} cases failed:\n")
+        for r in bad:
+            print(f"  ✘ {r['id']}  [{r['category']} · {FAILURES.get(r['code'], r['code'])}]")
+            print(f"      asked:    {_short(r['prompt'], 140)}")
+            print(f"      expected: {_short(r['expect'], 140)}")
+            got = "; ".join(f"{c['name']}({json.dumps(c['args'])})" for c in r["calls"]) or f"no tool call — {_short(r['final'], 90)}"
+            print(f"      got:      {_short(got, 140)}")
+            print(f"      why:      {_short(r['detail'], 140)}\n")
+    else:
+        print("Every test case passed.")
+    _save_scorecard("toolcalling", {"title": "Tool calling", "what": "function calling", "score": score, "ci": wilson(k, n),
+                                    "threshold": threshold, "n": n, "model": model, "seconds": sum(lat) / 1000})
+
+
 # ---------------------------------------------------------------- scorecard across notebooks
 def show_scorecard():
     plt = _plt()
