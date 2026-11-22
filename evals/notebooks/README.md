@@ -50,7 +50,7 @@ Edit `.env`:
 | `NO_PROXY` | Comma-separated hosts that bypass the proxy, e.g. an in-network model endpoint |
 | `CA_BUNDLE` | PEM file with your company root CA, if the proxy re-signs HTTPS traffic |
 
-lm-evaluation-harness 0.4.12 ignores proxy settings for its concurrent model requests, so the benchmark notebooks write a tiny `sitecustomize.py` into `.eval-notebook-proxy-patch/` (git-ignored) that makes it honor them. Nothing is patched when `PROXY_URL` is empty.
+lm-evaluation-harness 0.4.12 ignores proxy settings for its concurrent model requests, so `eval_env.py` (the helper every notebook uses to load `.env` and apply these settings) writes a tiny `sitecustomize.py` into `.eval-notebook-proxy-patch/` (git-ignored) that makes it honor them. Nothing is patched when `PROXY_URL` is empty.
 
 > Tip: to find the model name, run `curl $OPENAI_BASE_URL/models` (add `-H "Authorization: Bearer $OPENAI_API_KEY"` if you use a key).
 
