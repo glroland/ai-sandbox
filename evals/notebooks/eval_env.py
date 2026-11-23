@@ -7,6 +7,7 @@ when there is none, from prompts.
 import os
 from getpass import getpass
 from pathlib import Path
+from urllib.parse import quote
 
 __all__ = ["setup", "load_env", "apply_proxy"]
 
@@ -32,8 +33,16 @@ def apply_proxy():
 
     uv, Python (requests / huggingface_hub / aiohttp) and npm read HTTP(S)_PROXY and NO_PROXY
     (upper or lower case); Node's built-in fetch needs NODE_USE_ENV_PROXY; npm also has its own
-    npm_config_* names. CA_BUNDLE is for proxies that re-sign HTTPS traffic with a company CA."""
+    npm_config_* names. PROXY_USERNAME / PROXY_PASSWORD add username/password (basic) authentication
+    to PROXY_URL. CA_BUNDLE is only for proxies that re-sign HTTPS traffic with a company CA."""
     url, no_proxy = os.environ.get("PROXY_URL", "").strip(), os.environ.get("NO_PROXY", "").strip()
+    user, password = os.environ.get("PROXY_USERNAME", "").strip(), os.environ.get("PROXY_PASSWORD", "")
+    if url and user and "@" not in url:
+        # Basic auth: percent-encode so characters like @ : / # in a password can't break the URL.
+        scheme, sep, rest = url.partition("://")
+        if not sep:
+            scheme, rest = "http", url
+        url = f"{scheme}://{quote(user, safe='')}:{quote(password, safe='')}@{rest}"
     if url:
         # The model endpoint is sent through the proxy too, unless its host is listed in NO_PROXY.
         for k in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "npm_config_proxy", "npm_config_https_proxy"):
