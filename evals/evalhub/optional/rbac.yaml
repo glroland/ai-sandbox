@@ -1,0 +1,30 @@
+# Lets a user submit evaluations and register providers in their project (EvalHub tenant).
+# Replace my-project and my-user (`oc whoami`), then: oc apply -f rbac.yaml
+# The project must also be labelled as a tenant:
+#   oc label namespace my-project evalhub.trustyai.opendatahub.io/tenant=
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: evalhub-evaluator
+  namespace: my-project
+rules:
+  - apiGroups: [trustyai.opendatahub.io]
+    resources: [evaluations, collections, providers]
+    verbs: [get, list, create, update, delete]
+  - apiGroups: [mlflow.kubeflow.org]
+    resources: [experiments]
+    verbs: [create, get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: evalhub-evaluator-binding
+  namespace: my-project
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: evalhub-evaluator
+subjects:
+  - kind: User
+    name: my-user
+    apiGroup: rbac.authorization.k8s.io
