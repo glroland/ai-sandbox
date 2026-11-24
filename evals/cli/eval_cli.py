@@ -900,11 +900,90 @@ def run_lm_eval(run, base_url, model, api_key, work, concurrent, limit, max_gen_
     if limit:
         cmd += ["--limit", str(limit)]
     print(f"\n$ lm_eval --tasks {task}" + (f" --limit {limit}" if limit else ""), flush=True)
-    rc = subprocess.run(cmd, env={**os.environ, "OPENAI_API_KEY": api_key or "not-required"}).returncode
+    log = work / f"{task}.log"
+    rc, n_errors, first_error = _run_quiet(cmd, {**os.environ, "OPENAI_API_KEY": api_key or "not-required"}, log)
     if rc != 0:
-        raise SystemExit(f"lm_eval exited with {rc} while running {task} (re-run to resume from the cache)")
+        _explain_failure(task, rc, n_errors, first_error, log, cache, limit)
     shutil.rmtree(cache.parent, ignore_errors=True)
     return output
+
+
+# Lines lm-eval prints for every failed request / retry; hundreds appear when the endpoint is down.
+_NOISE = re.compile(r"Retry attempt|Exception:|API request failed|Session is closed|Traceback|^\s+(File |raise |await |async )|"
+                    r"Error\b|ConnectionRefused|Cannot connect|Task exception was never retrieved", re.I)
+_ERROR_LINE = re.compile(r"Exception:|API request failed|Status code|Cannot connect|\w+Error:", re.I)
+
+
+def _run_quiet(cmd, env, log):
+    """Run lm_eval, keeping the full output in `log`. The console gets a live progress line and the normal
+    messages, but not the per-request error spam. Returns (exit code, error-line count, first error line)."""
+    n_errors, first_error, shown_progress = 0, "", False
+    with open(log, "wb") as f, subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as proc:
+        buf = b""
+        while True:
+            chunk = os.read(proc.stdout.fileno(), 4096)
+            if not chunk:
+                break
+            f.write(chunk)
+            buf += chunk
+            parts = re.split(rb"[\r\n]", buf)
+            buf = parts.pop()
+            for raw in parts:
+                line = raw.decode("utf-8", "replace").rstrip()
+                if not line:
+                    continue
+                m = _ERROR_LINE.search(line)
+                if m:
+                    n_errors += 1
+                    if not first_error:
+                        first_error = line[line.rfind("]", 0, m.start()) + 1:] if "it/s]" in line[:m.start()] else line
+                    continue
+                if "it/s]" in line or "s/it]" in line or "%|" in line:   # tqdm progress: redraw in place
+                    print("\r" + line[:110].ljust(110), end="", flush=True)
+                    shown_progress = True
+                elif not _NOISE.search(line):
+                    print(("\n" if shown_progress else "") + line, flush=True)
+                    shown_progress = False
+        if shown_progress:
+            print(flush=True)
+    return proc.returncode, n_errors, first_error
+
+
+def _explain_failure(task, rc, n_errors, first_error, log, cache, limit):
+    """Stop with one clear message instead of the raw error cascade."""
+    done = 0
+    try:
+        import sqlite3  # lm-eval's cache is a sqlitedict file
+        for db in cache.parent.glob("requests_rank*.db"):
+            with sqlite3.connect(db) as c:
+                done += c.execute("select count(*) from unnamed").fetchone()[0]
+    except Exception:
+        pass
+    lines = [f"lm_eval exited with {rc} while running {task}."]
+    if first_error:
+        lines.append(f"First error ({n_errors} error lines in all): {first_error.strip()[:300]}")
+    lines.append(f"Full log: {log}")
+    lines.append(f"Answers saved so far: {done}" if done else "No answers were saved, so a re-run starts from the beginning.")
+    lines.append("No report was written for this benchmark. Fix the cause and re-run the same command to resume"
+                 + (" from the saved answers." if done else "."))
+    raise SystemExit("\n" + "\n".join(lines))
+
+
+def check_endpoint(base_url, model, api_key):
+    """Send one tiny request before starting, so a dead endpoint fails in seconds with one clear line."""
+    import urllib.request, urllib.error
+    req = urllib.request.Request(
+        base_url + "/chat/completions",
+        data=json.dumps({"model": model, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1}).encode(),
+        headers={"Content-Type": "application/json", **({"Authorization": f"Bearer {api_key}"} if api_key else {})})
+    try:
+        urllib.request.urlopen(req, timeout=60).read()
+    except urllib.error.HTTPError as e:
+        body = e.read()[:200].decode("utf-8", "replace")
+        raise SystemExit(f"Model endpoint {base_url} answered HTTP {e.code} {e.reason}: {body}\nNothing was run.")
+    except Exception as e:
+        raise SystemExit(f"Model endpoint {base_url} is unreachable ({type(e).__name__}: {e}).\nNothing was run.")
+    print("Endpoint check: OK", flush=True)
 
 
 def _exact_match(output, task, key=None):
@@ -989,6 +1068,7 @@ def cmd_run(args):
     base_url, MODEL, api_key = setup(args)
     RESULTS_DIR = Path(args.results_dir or os.environ.get("RESULTS_DIR") or DEFAULT_RESULTS_DIR).expanduser().resolve()
     print(f"Model: {MODEL} @ {urlparse(base_url).netloc or base_url}\nReports: {_report_folder(MODEL)}")
+    check_endpoint(base_url, MODEL, api_key)
     results = {name: run_benchmark(name, args, base_url, MODEL, api_key) for name in names}
     print("\n=== Summary ===")
     for name, passed in results.items():
