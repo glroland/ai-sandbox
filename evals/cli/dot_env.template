@@ -1,0 +1,37 @@
+# Copy this file to ".env" and fill in your values:  cp dot_env.template .env
+# The ".env" file is git-ignored, so your API key is never committed.
+# Values here win over variables already set in your shell; command-line flags win over both.
+
+# OpenAI-compatible base URL of the model endpoint (usually ends in /v1)
+OPENAI_BASE_URL=https://your-model-endpoint.example.com/v1
+
+# API key for the endpoint (leave empty if the endpoint needs no key)
+OPENAI_API_KEY=
+
+# Name of the model to evaluate, exactly as the endpoint knows it
+OPENAI_MODEL=your-model-name
+
+# --- Optional: corporate proxy (leave commented out for a direct connection) ---
+# Used for everything that goes over the network: pip, Hugging Face datasets, and the model endpoint.
+# PROXY_URL=http://proxy.example.com:3128
+
+# Proxy username/password authentication (optional). Special characters are fine; they are
+# URL-encoded for you. Alternatively embed them: PROXY_URL=http://user:pass@proxy.example.com:3128
+# PROXY_USERNAME=
+# PROXY_PASSWORD=
+
+# Hosts that must NOT go through the proxy, comma-separated (e.g. an in-network model endpoint).
+# NO_PROXY=localhost,127.0.0.1,.internal.example.com
+
+# Only needed if the proxy re-signs HTTPS traffic with a company CA (not related to proxy login;
+# symptoms: "certificate verify failed" / "unable to get local issuer certificate"). Path to a PEM file.
+# CA_BUNDLE=/path/to/company-ca.pem
+
+# --- Optional run settings ---
+# Package index `make install` uses (default https://pypi.org/simple, as in the notebooks). Set to an internal
+# mirror, or leave empty (PYPI_INDEX=) to use pip's own configuration.
+# PYPI_INDEX=https://pypi.org/simple
+# Parallel requests to the model (default 8)
+# NUM_CONCURRENT=8
+# Where the <model name>/ report folders go (default: ./reports)
+# RESULTS_DIR=reports

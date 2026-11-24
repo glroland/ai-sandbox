@@ -1,0 +1,8 @@
+# lm-evaluation-harness, pinned so results are repeatable. The extras cover every benchmark:
+#   api    - the OpenAI-compatible chat client (all benchmarks)
+#   ifeval - IFEval's instruction checkers
+#   math   - MATH Level 5's answer checking
+lm-eval[api,ifeval,math]==0.4.12
+
+# Charts for the HTML reports
+matplotlib>=3.8

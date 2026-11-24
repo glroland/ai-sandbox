@@ -286,7 +286,7 @@ def report_math(output, threshold):
     print(f"  • {len(wrong)} gave a final answer that was wrong")
     print(f"  • {len(unfinished)} never reached a final answer — the solution was still working when it stopped"
           + (f" (budget: {cap} tokens)" if cap else ""))
-    if unfinished:
+    if unfinished and answered:  # (answered is 0 when nothing finished)
         print(f"  When it did finish, accuracy was {pct((answered - len(wrong)) / answered)} "
               f"({answered - len(wrong)}/{answered}); a larger token budget could lift the headline toward that.\n")
     print("A sample of misses (expected answer vs. the end of the model's working):\n")
@@ -321,7 +321,7 @@ def report_mmlu(output, threshold):
     letters = "ABCD"
     def pred(s):
         p = re.sub(r"[^A-Za-z]", "", s["resps"][0][0]).upper()
-        return p if p in letters else "?"
+        return p if len(p) == 1 and p in letters else "?"  # len check: "" and "AB" are substrings of "ABCD"
     bare = sum(pred(s) != "?" for s in samples_all)
 
     _card(plt, "MMLU · knowledge across 57 subjects", f"{mname} @ {_host(res['config']['model_args'].get('base_url'))}",

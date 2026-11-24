@@ -1,0 +1,7 @@
+# Local settings and secrets
+.env
+
+# Virtualenv, raw lm-eval output and request caches
+.venv/
+.eval-cli/
+__pycache__/
