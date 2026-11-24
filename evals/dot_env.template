@@ -1,5 +1,8 @@
+# Shared configuration for all three evaluation techniques (cli/, notebooks/, evalhub/).
 # Copy this file to ".env" and fill in your values:  cp dot_env.template .env
 # The ".env" file is git-ignored, so your API key is never committed.
+# It is searched for in the current directory, then its parent (.env, then ../.env), so it can live
+# here in evals/ and be found when you run from cli/, notebooks/ or evalhub/.
 # Values here win over variables already set in your shell; command-line flags win over both.
 
 # OpenAI-compatible base URL of the model endpoint (usually ends in /v1)
@@ -12,7 +15,7 @@ OPENAI_API_KEY=
 OPENAI_MODEL=your-model-name
 
 # --- Optional: corporate proxy (leave commented out for a direct connection) ---
-# Used for everything that goes over the network: pip, Hugging Face datasets, and the model endpoint.
+# Used for everything that goes over the network: pip/uv/npm, Hugging Face datasets, and the model endpoint.
 # PROXY_URL=http://proxy.example.com:3128
 
 # Proxy username/password authentication (optional). Special characters are fine; they are
@@ -27,11 +30,19 @@ OPENAI_MODEL=your-model-name
 # symptoms: "certificate verify failed" / "unable to get local issuer certificate"). Path to a PEM file.
 # CA_BUNDLE=/path/to/company-ca.pem
 
-# --- Optional run settings ---
-# Package index `make install` uses (default https://pypi.org/simple, as in the notebooks). Set to an internal
+# --- Optional run settings (cli/) ---
+# Package index `make install` uses (default https://pypi.org/simple). Set to an internal
 # mirror, or leave empty (PYPI_INDEX=) to use pip's own configuration.
 # PYPI_INDEX=https://pypi.org/simple
 # Parallel requests to the model (default 8)
 # NUM_CONCURRENT=8
-# Where the <model name>/ report folders go (default: ./reports)
-# RESULTS_DIR=reports
+# Where the <model name>/ report folders go (default: evals/reports, shared by cli/ and notebooks/)
+# RESULTS_DIR=/path/to/reports
+
+# --- Optional: EvalHub on OpenShift (evalhub/) ---
+# evalhub/ scripts use OPENAI_BASE_URL / OPENAI_MODEL / OPENAI_API_KEY above in place of the model
+# in the job-*.json files when set (the remote EvalHub jobs themselves still use the job file).
+# EVALHUB_HOST=evalhub-redhat-ods-applications.apps.example.com
+# EVALHUB_NAMESPACE=redhat-ods-applications
+# EVALHUB_TOKEN=            # default: `oc whoami -t`
+# INSECURE=true             # skip TLS verification when calling EvalHub

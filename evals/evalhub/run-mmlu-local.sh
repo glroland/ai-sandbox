@@ -6,6 +6,8 @@
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Shared settings (../.env or ./.env, see ../dot_env.template)
+source "$SCRIPT_DIR/load-env.sh"
 LM_EVAL_VERSION=0.4.13
 
 [ -n "$1" ] || { echo "Usage: $0 <job-file.json> [lm_eval args...]" >&2; exit 1; }
@@ -15,8 +17,8 @@ shift
 
 command -v uvx >/dev/null || { echo "uvx (uv) is required: https://docs.astral.sh/uv/" >&2; exit 1; }
 
-MODEL_URL=$(jq -r '.model.url' "$JOB_FILE")
-MODEL_NAME=$(jq -r '.model.name' "$JOB_FILE")
+MODEL_URL=${OPENAI_BASE_URL:-$(jq -r '.model.url' "$JOB_FILE")}
+MODEL_NAME=${OPENAI_MODEL:-$(jq -r '.model.name' "$JOB_FILE")}
 TASK=$(jq -r '.benchmarks[0].id' "$JOB_FILE")
 CONCURRENT=$(jq -r '.benchmarks[0].parameters.num_concurrent // 1' "$JOB_FILE")
 THRESHOLD=$(jq -r '.pass_criteria.threshold' "$JOB_FILE")

@@ -7,7 +7,7 @@
 #   make scorecard          latest score of each benchmark for the model in .env
 #   make help               more options
 #
-# Settings (model URL, name, key, proxy) come from .env - see dot_env.template.
+# Settings (model URL, name, key, proxy) come from .env - see ../dot_env.template.
 
 PYTHON ?= python3
 VENV   ?= .venv

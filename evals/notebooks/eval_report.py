@@ -8,7 +8,7 @@ per-category breakdowns, failure analysis and run statistics.
 Only matplotlib is needed; it is installed on first use if missing.
 
 Every report_*() function also saves what it showed (charts and text) as a standalone HTML page in a
-folder named after the model, next to this file: <model name>/<benchmark>.html.
+folder named after the model inside the shared evals/reports folder: reports/<model name>/<benchmark>.html.
 """
 import base64, functools, html, io, json, os, re, statistics, subprocess, sys, time
 from collections import Counter, defaultdict
@@ -836,7 +836,7 @@ class _Tee:
 
 
 def _report_folder(model):
-    return Path(__file__).resolve().parent / (re.sub(r"[^\w.\-]+", "_", model).strip("._") or "unknown-model")
+    return Path(__file__).resolve().parent.parent / "reports" / (re.sub(r"[^\w.\-]+", "_", model).strip("._") or "unknown-model")
 
 
 def _recorded(name):
@@ -855,7 +855,7 @@ def _recorded(name):
             body = "".join(f"<pre>{html.escape(v)}</pre>" if k == "text" else f'<img src="data:image/png;base64,{v}">'
                            for k, v in parts)
             folder = _report_folder(model)
-            folder.mkdir(exist_ok=True)
+            folder.mkdir(parents=True, exist_ok=True)
             out = folder / f"{name}.html"
             out.write_text(
                 "<!doctype html><meta charset=utf-8>"

@@ -30,7 +30,7 @@ The evaluation tools themselves are downloaded automatically the first time a no
 ## 2. Point the notebooks at your model
 
 ```bash
-cp dot_env.template .env
+cp ../dot_env.template ../.env
 ```
 
 Edit `.env`:
@@ -67,7 +67,7 @@ Open a notebook and run the cells top to bottom. Each one follows the same steps
 
 ### Run everything at once
 
-Open `run-all.ipynb`, set `MODEL_URL`, `MODEL_NAME` and `MODEL_API_KEY` in its configuration cell, and run it. Those values override `.env` for every notebook. Each notebook's executed copy (with charts), an HTML version and a log are saved in `<model name>/` next to the notebooks, plus a `summary.json` and a scorecard for that model. Edit `NOTEBOOKS` to skip some, and `RESULTS_ROOT` to save elsewhere. Proxy settings still come from `.env`.
+Open `run-all.ipynb`, set `MODEL_URL`, `MODEL_NAME` and `MODEL_API_KEY` in its configuration cell, and run it. Those values override `.env` for every notebook. Each notebook's executed copy (with charts), an HTML version and a log are saved in `reports/<model name>/` (the shared `evals/reports/` folder), plus a `summary.json` and a scorecard for that model. Edit `NOTEBOOKS` to skip some, and `RESULTS_ROOT` to save elsewhere. Proxy settings still come from `.env`.
 
 ## What the dashboards show
 
@@ -99,7 +99,7 @@ Start with `LIMIT = 10` to confirm your connection works; the full benchmarks ca
 
 ## Saved reports
 
-Each notebook's dashboard (charts and text) is also saved as a standalone page, `<model name>/<benchmark>.html`, in this folder — e.g. `my-model/mmlu.html`. The folder is named after `OPENAI_MODEL` (characters such as `/` become `_`), so runs of different models sit side by side and a re-run replaces that benchmark's page.
+Each notebook's dashboard (charts and text) is also saved as a standalone page, `reports/<model name>/<benchmark>.html`, in the shared `evals/reports/` folder (next to `cli/` and `notebooks/`) — e.g. `reports/my-model/mmlu.html`. The folder is named after `OPENAI_MODEL` (characters such as `/` become `_`), so runs of different models sit side by side and a re-run replaces that benchmark's page.
 
 ## Output files
 

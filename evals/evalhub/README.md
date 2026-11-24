@@ -1,7 +1,7 @@
-# EvalHub Hello World
+# EvalHub evaluations
 
-A minimal evaluation for EvalHub on OpenShift AI 3.5. It sends the model one prompt,
-*"What is the capital of France?"*, and passes only if the answer mentions **Paris**.
+Evaluations for EvalHub on OpenShift AI 3.5, run as managed jobs on the cluster, plus local runners that skip EvalHub. The "hello world" job (`job-basic.json`) sends the model one prompt,
+*"What is the capital of France?"*, and passes only if the answer mentions **Paris**. `job-ifeval.json`, `job-mmlu.json` and `job-math.json` run standard lm-evaluation-harness benchmarks.
 
 There's no custom code or image to build. It uses the community
 [promptfoo adapter](https://github.com/eval-hub/eval-hub-contrib/tree/main/adapters/promptfoo)
@@ -10,23 +10,28 @@ There's no custom code or image to build. It uses the community
 | File | Purpose |
 |------|---------|
 | `provider.json` | Registers the promptfoo provider and its `promptfoo-eval` benchmark (primary score `pass_rate`, threshold 1.0) |
-| `job.json` | Evaluation job request, including the model URL/name and the promptfoo prompt/test case |
+| `provider-lm-eval.json` | Registers `lm-eval-standard`, a tenant copy of the built-in lm-evaluation-harness provider that adds the `mmlu_generative` benchmark (exact match, threshold 0.6) |
+| `job-basic.json` | Hello-world job request: the model URL/name and the promptfoo prompts/test cases (threshold 1.0) |
 | `job-ifeval.json` | Standard IFEval instruction-following benchmark, run by EvalHub's built-in LM Evaluation Harness provider (see [Instruction following (IFEval)](#instruction-following-ifeval)) |
+| `job-mmlu.json` | MMLU (generative) via the `lm-eval-standard` provider registered by `install-evals.sh` (threshold 0.6) |
+| `job-math.json` | MATH-hard (`leaderboard_math_hard`) via the built-in LM Evaluation Harness provider (threshold 0.1) |
 | `optional/rbac.yaml` | Role and RoleBinding that give a single user EvalHub API access in one project (not needed when Contributor/Admin access from `prepare-namespace-for-evals.sh` is enough) |
 | `prepare-namespace-for-evals.sh` | **Run as cluster admin**, once per namespace: labels/provisions it as an EvalHub tenant and gives project Contributors/Admins EvalHub API access |
-| `install-evals.sh` | One-time setup as a project Contributor/Admin: checks the namespace was prepared, registers the provider, and stores the model's API key as a Secret |
-| `run.sh` | Submits the given job file (e.g. `job.json`) to EvalHub, polls until it finishes, prints the result, and exits non-zero on failure |
+| `install-evals.sh` | One-time setup as a project Contributor/Admin: checks the namespace was prepared, registers both providers (`provider.json`, `provider-lm-eval.json`), and stores the model's API key as a Secret |
+| `run-remote.sh` | Submits the given job file (e.g. `job-basic.json`) to EvalHub, polls until it finishes, prints the result, and exits non-zero on failure |
 | `run-ifeval-local.sh` | Runs IFEval locally with lm-evaluation-harness against the model's chat endpoint, with the chat template applied (see below) |
-| `run-mmlu-local.sh` | Runs MMLU (generative, exact match) locally with lm-evaluation-harness against the model's chat endpoint, with the chat template applied — no EvalHub, no OpenShift |
-| `run-promptfoo-local.sh` | Runs the same prompt/test straight against the model with the local `promptfoo` CLI — no EvalHub, no OpenShift |
-| `run-*-local.ipynb` | Self-contained Jupyter notebooks for promptfoo, IFEval, MMLU, MATH, TruthfulQA, reasoning, multilingual and tool calling, plus a scorecard — the local runners above as notebooks. Endpoint, key, task and threshold sit in one configuration cell near the top; no job file needed |
+| `run-mmlu-local.sh` | Runs MMLU (generative, 5-shot, exact match) locally with lm-evaluation-harness against the model's chat endpoint, with the chat template applied. Takes a job file, e.g. `job-mmlu.json` |
+| `run-promptfoo-local.sh` | Runs the job file's prompts/tests straight against the model with the local `promptfoo` CLI, no EvalHub or OpenShift |
+| `load-env.sh` | Sourced by the scripts above: loads the shared `.env` and applies proxy settings (see [Settings](#settings-env)) |
 
-All three scripts take the tenant namespace as a required first argument. The EvalHub
+The notebook versions of the local runners live in [`../notebooks`](../notebooks/README.md).
+
+`prepare-namespace-for-evals.sh`, `install-evals.sh` and `run-remote.sh` take the tenant namespace as a required first argument. The EvalHub
 host and the namespace EvalHub runs in are set at the top of each script (override by
-exporting `EVALHUB_HOST`/`EVALHUB_NAMESPACE`). No local state is kept: `run.sh` looks up
+exporting `EVALHUB_HOST`/`EVALHUB_NAMESPACE`, or setting them in `.env`). No local state is kept: `run-remote.sh` looks up
 the registered promptfoo provider's id from EvalHub by name on each run. The model
-URL/name/secret are hardcoded directly in `job.json` — edit that file in place if the
-model changes.
+URL/name/secret are hardcoded in each `job-*.json` — edit those files if the
+model changes. (The local scripts can instead take the model from `.env`; see Settings.)
 
 `install-evals.sh` fails up front, naming the exact `prepare-namespace-for-evals.sh`
 command to hand a cluster admin, if the namespace hasn't been prepared or the current
@@ -62,7 +67,7 @@ but EvalHub only runs evaluations in namespaces prepared as tenants.
 
 ## The test
 
-The benchmark parameters in `job.json` use promptfoo's own config format:
+The benchmark parameters in `job-basic.json` use promptfoo's own config format:
 
 ```json
 "prompts": ["{{question}}"],
@@ -94,8 +99,8 @@ cases that pass, and the 1.0 threshold means every one must pass.
 ./prepare-namespace-for-evals.sh my-project
 
 # As a project Contributor/Admin:
-./install-evals.sh my-project   # once: registers the provider, prompts for the model's API key
-./run.sh my-project job.json    # submits the job and prints pass/fail
+./install-evals.sh my-project   # once: registers the providers, prompts for the model's API key
+./run-remote.sh my-project job-basic.json    # submits the job and prints pass/fail
 ```
 
 To run against the model directly, without EvalHub or OpenShift at all (just `jq` and
@@ -105,7 +110,7 @@ To run against the model directly, without EvalHub or OpenShift at all (just `jq
 MODEL_API_KEY=... ./run-promptfoo-local.sh job-basic.json   # or omit MODEL_API_KEY and it'll prompt
 ```
 
-It builds a `promptfoo` config from `job.json`'s `prompts`/`tests`/`model.url`, runs
+It builds a `promptfoo` config from the job file's `prompts`/`tests`/`model.url`, runs
 `promptfoo eval` locally, and reports the same pass/fail using the configured threshold.
 Raw results are written to `.eval-local.json` (gitignored).
 
@@ -131,7 +136,7 @@ Test results:
 PASS: all promptfoo assertions passed
 ```
 
-`run.sh` prints the per-test breakdown (question, pass/fail, the model's actual
+`run-remote.sh` prints the per-test breakdown (question, pass/fail, the model's actual
 response, and the assertion failure reason when it fails) straight from the job
 result's `results.benchmarks[].additional_info.promptfoo_eval_json` — this is the
 same detail promptfoo itself produces, just surfaced directly instead of requiring
@@ -147,7 +152,7 @@ registered in EvalHub as benchmark `ifeval` of the built-in `lm_evaluation_harne
 provider (Red Hat's `odh-ta-lmes-job` image). `install-evals.sh` doesn't register anything for it.
 
 ```bash
-./run.sh my-project job-ifeval.json
+./run-remote.sh my-project job-ifeval.json
 ```
 
 - The primary score is `inst_level_strict_acc`, which is the fraction of individual
@@ -193,33 +198,50 @@ token, when a request fails and is retried. Don't paste that output anywhere pub
   [disconnected cluster guide](https://eval-hub.github.io/guides/disconnected-cluster/).
 - For a quick smoke test, add `"num_examples": 10` to the benchmark's `parameters`.
   That's useful for checking the setup, but the score isn't meaningful.
-- `run.sh` prints the metrics and pass/fail only. The per-prompt breakdown is
+- `run-remote.sh` prints the metrics and pass/fail only. The per-prompt breakdown is
   promptfoo-specific.
+
+### MMLU and MATH
+
+```bash
+./run-remote.sh my-project job-mmlu.json   # needs the lm-eval-standard provider from install-evals.sh
+./run-remote.sh my-project job-math.json   # built-in provider, nothing to register
+MODEL_API_KEY=... ./run-mmlu-local.sh job-mmlu.json --limit 10   # local, chat template applied
+```
+
+`job-mmlu.json` uses `mmlu_generative`, where the model generates the answer letter, so it works against
+chat-completions endpoints. Like IFEval, the in-cluster adapter doesn't apply the chat template; the local script does
+(5-shot, with a system instruction asking for just the letter) and writes to `.eval-mmlu-local/` (gitignored), with a
+resumable request cache like the IFEval one.
 
 ### Model authentication
 
 `install-evals.sh` prompts for the model's API key and stores it as a Secret
-(`gemma-4-api-key`) in the tenant namespace, referenced from `job.json` via
+(`gemma-4-api-key`) in the tenant namespace; if `OPENAI_API_KEY` is set in `.env` it is used without prompting, referenced from the job files via
 `model.auth.secret_ref`. Leave the prompt blank to skip creating/updating the secret.
-`run-promptfoo-local.sh` instead takes the raw key directly via `MODEL_API_KEY` (or a prompt),
+The local scripts instead take the raw key from `OPENAI_API_KEY` in `.env`, `MODEL_API_KEY`, or a prompt,
 since there's no cluster to hold a Secret for it.
 
 ### MLflow tracking
 
-Add `"experiment": {"name": "hello-world"}` to `job.json` to log the run (including
+Add `"experiment": {"name": "hello-world"}` to a job file (`job-ifeval.json` and `job-math.json` already set one) to log the run (including
 promptfoo's `eval.json`) to MLflow. This only takes effect if EvalHub is configured with
 an MLflow tracking URI.
 
 ## Notes
 
 - The promptfoo adapter is community-maintained, not Red Hat–supported.
-- `provider.json` uses the `:latest` tag. To pin a specific digest for repeatable
+- `provider.json` uses the `:latest` tag; `provider-lm-eval.json` pins the image by digest. To pin a specific digest for repeatable
   results, edit the `image` field directly and rerun `./install-evals.sh <namespace>`.
 - Set `INSECURE=true` before running either script to skip TLS verification against
   a cluster with self-signed certs.
 - `run-promptfoo-local.sh` pins the same promptfoo CLI version (`0.123.1`) the in-cluster adapter
   image currently uses, so local and EvalHub runs score identically.
-- `job.json`'s `model.url` uses the short `/sandbox/gemma-4` path rather than the
+- `job-basic.json`'s `model.url` uses the short `/sandbox/gemma-4` path rather than the
   KServe-native `/publishers/sandbox/models/gemma-4` one (both route to the same
   backend) — the MaaS gateway's authorization only recognizes the two-segment
   `<namespace>/<model>` path form, so the longer form gets rejected with a 403.
+
+## Settings: `.env`
+
+The local scripts and `install-evals.sh` read the shared `evals/.env` (template: `../dot_env.template`), looked up as `./.env` then `../.env`. `OPENAI_BASE_URL`, `OPENAI_MODEL` and `OPENAI_API_KEY` override the model in the job file (and replace the API key prompt); proxy settings and `EVALHUB_HOST` / `EVALHUB_NAMESPACE` / `EVALHUB_TOKEN` are also honoured.

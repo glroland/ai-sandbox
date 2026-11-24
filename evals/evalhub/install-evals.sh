@@ -8,6 +8,8 @@
 set -eo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Shared settings (../.env or ./.env, see ../dot_env.template)
+source "$SCRIPT_DIR/load-env.sh"
 MODEL_SECRET=gemma-4-api-key
 
 # EvalHub route host and the namespace evalhub-service runs in. Override via env.
@@ -88,8 +90,10 @@ for PROVIDER_FILE in "$SCRIPT_DIR/provider.json" "$SCRIPT_DIR/provider-lm-eval.j
     fi
 done
 
-MODEL_API_KEY=
-if oc get secret "$MODEL_SECRET" -n "$EVALHUB_TENANT" > /dev/null 2>&1; then
+MODEL_API_KEY=${OPENAI_API_KEY:-}
+if [ -n "$MODEL_API_KEY" ]; then
+    echo "Using OPENAI_API_KEY from .env for secret '$MODEL_SECRET'"
+elif oc get secret "$MODEL_SECRET" -n "$EVALHUB_TENANT" > /dev/null 2>&1; then
     read -r -p "Secret '$MODEL_SECRET' already exists. Use existing? [Y/n] " USE_EXISTING
     case "$USE_EXISTING" in
         [nN]*) read -r -s -p "Model API key for secret '$MODEL_SECRET': " MODEL_API_KEY; echo ;;
@@ -105,4 +109,4 @@ if [ -n "$MODEL_API_KEY" ]; then
         --dry-run=client -o yaml | oc apply -f -
 fi
 
-echo "Install complete. Run ./run.sh $EVALHUB_TENANT job.json to evaluate."
+echo "Install complete. Run ./run-remote.sh $EVALHUB_TENANT job-basic.json to evaluate."

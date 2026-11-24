@@ -15,9 +15,10 @@ __all__ = ["setup", "load_env", "apply_proxy"]
 def load_env():
     """Read KEY=VALUE lines from a .env file into os.environ. Returns False if there is no file.
 
-    Looks in the kernel's working directory, then ./notebooks (some Jupyter servers start the
-    kernel in the repo's parent folder rather than next to the notebook)."""
-    p = next((c for c in (Path(".env"), Path("notebooks/.env")) if c.is_file()), None)
+    Looks in the kernel's working directory, then its parent (./.env, ../.env), then the same two
+    next to this file. The shared .env lives in evals/, the parent of notebooks/."""
+    here = Path(__file__).resolve().parent
+    p = next((c for c in (Path(".env"), Path("../.env"), here / ".env", here.parent / ".env") if c.is_file()), None)
     if p is None:
         return False
     for line in p.read_text().splitlines():

@@ -1,9 +1,11 @@
 #!/bin/bash
 # Submit an evaluation job and wait for the pass/fail result.
-# Usage: ./run.sh <namespace> <job-file.json>   (e.g. job.json, job-ifeval.json)
+# Usage: ./run-remote.sh <namespace> <job-file.json>   (e.g. job-basic.json, job-ifeval.json)
 set -eo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Shared settings (../.env or ./.env, see ../dot_env.template)
+source "$SCRIPT_DIR/load-env.sh"
 
 # EvalHub route host. Override via env.
 EVALHUB_HOST=${EVALHUB_HOST:-evalhub-redhat-ods-applications.apps.ocp.home.glroland.com}

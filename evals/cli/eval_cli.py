@@ -23,7 +23,7 @@ from urllib.parse import quote, urlparse
 HERE = Path(__file__).resolve().parent
 TASKS_DIR = HERE / "lm_eval_tasks"          # custom lm-eval task definitions (truthfulqa, mgsm_chat, global_mmlu_lite)
 WORK_DIR = HERE / ".eval-cli"               # raw lm-eval output + request cache, per model (git-ignored)
-DEFAULT_RESULTS_DIR = HERE / "reports"      # <results-dir>/<model name>/<benchmark>.html
+DEFAULT_RESULTS_DIR = HERE.parent / "reports"      # <results-dir>/<model name>/<benchmark>.html
 
 LM_EVAL_VERSION = "0.4.12"                  # pinned in requirements.txt too, so results are repeatable
 DEFAULT_CONCURRENT = 8                      # parallel requests to the model
@@ -62,8 +62,9 @@ BENCHMARKS = {
 def load_env(path=None):
     """Read KEY=VALUE lines from a .env file into os.environ (the file wins over variables already set).
 
-    Looks at `path` if given, else ./.env, then the .env next to this script. Returns the file used, or None."""
-    candidates = [Path(path)] if path else [Path(".env"), HERE / ".env"]
+    Looks at `path` if given, else ./.env, then ../.env, then the same two next to this script
+    (the shared .env lives in evals/, the parent of cli/). Returns the file used, or None."""
+    candidates = [Path(path)] if path else [Path(".env"), Path("..") / ".env", HERE / ".env", HERE.parent / ".env"]
     p = next((c for c in candidates if c.is_file()), None)
     if p is None:
         if path:
@@ -1007,7 +1008,7 @@ def cmd_scorecard(args):
 def main(argv=None):
     p = argparse.ArgumentParser(description="Run lm-evaluation-harness benchmarks against an OpenAI-compatible chat endpoint.")
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--env-file", help="path to a .env file (default: ./.env, then the .env next to this script)")
+    common.add_argument("--env-file", help="path to a .env file (default: ./.env, then ../.env)")
     common.add_argument("--base-url", help="model endpoint base URL, usually ending in /v1 (overrides OPENAI_BASE_URL)")
     common.add_argument("--model", help="model name as the endpoint reports it (overrides OPENAI_MODEL)")
     common.add_argument("--api-key", help="API key (overrides OPENAI_API_KEY; prefer .env so it stays out of shell history)")

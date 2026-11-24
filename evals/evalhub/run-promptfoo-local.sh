@@ -5,6 +5,8 @@
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Shared settings (../.env or ./.env, see ../dot_env.template)
+source "$SCRIPT_DIR/load-env.sh"
 PROMPTFOO_VERSION=0.123.1
 
 [ -n "$1" ] || { echo "Usage: $0 <job-file.json>" >&2; exit 1; }
@@ -13,8 +15,8 @@ JOB_FILE=$1
 
 command -v npx >/dev/null || { echo "npx (Node.js) is required." >&2; exit 1; }
 
-MODEL_URL=$(jq -r '.model.url' "$JOB_FILE")
-MODEL_NAME=$(jq -r '.model.name' "$JOB_FILE")
+MODEL_URL=${OPENAI_BASE_URL:-$(jq -r '.model.url' "$JOB_FILE")}
+MODEL_NAME=${OPENAI_MODEL:-$(jq -r '.model.name' "$JOB_FILE")}
 THRESHOLD=$(jq -r '.pass_criteria.threshold' "$JOB_FILE")
 
 if [ -z "$MODEL_API_KEY" ]; then
@@ -27,7 +29,7 @@ CONFIG="$WORKDIR/config.json"
 OUTPUT="$SCRIPT_DIR/.eval-local.json"
 trap 'rm -rf "$WORKDIR"' EXIT
 
-jq --arg url "$MODEL_URL/v1" --arg name "$MODEL_NAME" --arg key "${MODEL_API_KEY:-not-required}" \
+jq --arg url "${MODEL_URL%/v1}/v1" --arg name "$MODEL_NAME" --arg key "${MODEL_API_KEY:-not-required}" \
     '.benchmarks[0].parameters + {providers: [{id: ("openai:chat:" + $name), config: {apiBaseUrl: $url, apiKey: $key}}]}' \
     "$JOB_FILE" > "$CONFIG"
 

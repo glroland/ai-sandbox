@@ -1,3 +1,5 @@
+# Local settings and secrets (shared by cli/, notebooks/ and evalhub/)
+.env
 .eval-local.json
 .eval-ifeval-local/
 .eval-ifeval-local-cache/

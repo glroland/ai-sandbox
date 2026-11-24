@@ -115,7 +115,7 @@ subjects:
 EOF
 
     # 4. The job SA also needs to create/update MLflow experiments and runs (used
-    #    when job.json sets "experiment") — the MLflow server's RBAC-backed proxy
+    #    when a job file sets "experiment") — the MLflow server's RBAC-backed proxy
     #    authorizes those calls via a SubjectAccessReview against mlflow.kubeflow.org
     #    resources, so without this the job fails with "MLflow save failed:
     #    PERMISSION_DENIED (HTTP 403)" even though the eval itself ran fine.
