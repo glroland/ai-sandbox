@@ -34,13 +34,16 @@ DEFAULT_CONCURRENT = 8                      # parallel requests to the model
 BENCHMARKS = {
     "ifeval": dict(
         title="IFEval - instruction following", threshold=0.6,
-        runs=[dict(key="ifeval", task="ifeval")]),
+        runs=[dict(key="ifeval", task="ifeval", max_gen_toks=4096)]),
     "math": dict(
         title="MATH Level 5 - hard competition maths", threshold=0.1,
         runs=[dict(key="math", task="leaderboard_math_hard", max_gen_toks=4096)]),
     "mmlu": dict(
         title="MMLU - broad knowledge (57 subjects)", threshold=0.6,
         runs=[dict(key="mmlu", task="mmlu_generative", num_fewshot=5,
+                   # reasoning models think before answering: allow room for that, and drop the task's
+                   # default "\n" stop sequence, which would cut the reply off inside the reasoning
+                   max_gen_toks=4096, until="</s>",
                    system_instruction="Reply with only the letter of the correct answer (A, B, C, or D).")]),
     "truthfulqa": dict(
         title="TruthfulQA - resists falsehoods", threshold=0.5,
@@ -873,7 +876,7 @@ for _name in [n for n in list(globals()) if n.startswith("report_")]:
 
 
 # ---------------------------------------------------------------- running lm_eval
-def run_lm_eval(run, base_url, model, api_key, work, concurrent, limit, max_gen_toks):
+def run_lm_eval(run, base_url, model, api_key, work, concurrent, limit, max_gen_toks, temperature=None):
     """Run one lm-evaluation-harness task and return the folder holding its results and samples.
 
     Completed requests are cached, so if the run dies partway, re-running resumes where it stopped;
@@ -895,8 +898,10 @@ def run_lm_eval(run, base_url, model, api_key, work, concurrent, limit, max_gen_
     if run.get("system_instruction"):
         cmd += ["--system_instruction", run["system_instruction"]]
     toks = max_gen_toks if max_gen_toks is not None else run.get("max_gen_toks")
-    if toks:
-        cmd += ["--gen_kwargs", f"max_gen_toks={toks}"]
+    gen = ([f"max_gen_toks={toks}"] if toks else []) + ([f"until={run['until']}"] if run.get("until") else []) \
+          + ([f"do_sample=True,temperature={temperature}"] if temperature is not None else [])
+    if gen:
+        cmd += ["--gen_kwargs", ",".join(gen)]
     if limit:
         cmd += ["--limit", str(limit)]
     print(f"\n$ lm_eval --tasks {task}" + (f" --limit {limit}" if limit else ""), flush=True)
@@ -999,7 +1004,7 @@ def run_benchmark(name, args, base_url, model, api_key):
     threshold = args.threshold if args.threshold is not None else spec["threshold"]
     work = WORK_DIR / model_slug(model)
     print(f"\n=== {spec['title']} ===", flush=True)
-    out = {r["key"]: run_lm_eval(r, base_url, model, api_key, work, args.concurrent, args.limit, args.max_gen_toks)
+    out = {r["key"]: run_lm_eval(r, base_url, model, api_key, work, args.concurrent, args.limit, args.max_gen_toks, args.temperature)
            for r in spec["runs"]}
 
     def report(fn, *a):
@@ -1108,6 +1113,9 @@ def main(argv=None):
     sp.add_argument("--concurrent", type=int, default=int(os.environ.get("NUM_CONCURRENT", DEFAULT_CONCURRENT)),
                     help=f"parallel requests to the model (default: NUM_CONCURRENT or {DEFAULT_CONCURRENT})")
     sp.add_argument("--max-gen-toks", type=int, help="most tokens the model may write per answer (default: per benchmark)")
+    sp.add_argument("--temperature", type=float,
+                    help="sampling temperature (default: 0, greedy). Reasoning models such as gpt-oss can loop forever "
+                         "at 0 and return empty answers; use 1.0 for them")
     sp.add_argument("--strict", action="store_true", help="exit with status 1 if any benchmark FAILs its threshold")
     sp.set_defaults(func=cmd_run)
 

@@ -20,7 +20,7 @@ STAMP  := $(VENV)/.installed
 #   LIMIT=10  THRESHOLD=0.7  CONCURRENT=16  MAX_GEN_TOKS=4096  RESULTS_DIR=/some/dir  ENV_FILE=other.env  STRICT=1
 #   ARGS="--model foo --base-url https://host/v1"   (anything else the CLI accepts)
 RUN_FLAGS = $(if $(LIMIT),--limit $(LIMIT)) $(if $(THRESHOLD),--threshold $(THRESHOLD)) \
-            $(if $(CONCURRENT),--concurrent $(CONCURRENT)) $(if $(MAX_GEN_TOKS),--max-gen-toks $(MAX_GEN_TOKS)) \
+            $(if $(CONCURRENT),--concurrent $(CONCURRENT)) $(if $(MAX_GEN_TOKS),--max-gen-toks $(MAX_GEN_TOKS)) $(if $(TEMPERATURE),--temperature $(TEMPERATURE)) \
             $(if $(STRICT),--strict) $(if $(RESULTS_DIR),--results-dir $(RESULTS_DIR)) \
             $(if $(ENV_FILE),--env-file $(ENV_FILE)) $(ARGS)
 
