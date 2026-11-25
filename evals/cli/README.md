@@ -41,7 +41,7 @@ Pass as `make mmlu LIMIT=10 CONCURRENT=16`, or to the script directly: `python e
 | `PYPI_INDEX` | `install --index-url URL` | Package index for `make install` (default `https://pypi.org/simple`; also settable in `.env`; empty = pip's own config) |
 | `LIMIT` | `--limit N` | Questions per task (per language/subtask where there are several). Default: everything |
 | `THRESHOLD` | `--threshold X` | Pass mark for a single benchmark (defaults: ifeval 0.6, math 0.1, mmlu 0.6, truthfulqa 0.5, reasoning 0.6, multilingual 0.6) |
-| `CONCURRENT` | `--concurrent N` | Parallel requests to the model (default 8, or `NUM_CONCURRENT` in `.env`) |
+| `CONCURRENT` | `--concurrent N` | Parallel requests to the model (default 8; `make` always passes it, so set `CONCURRENT=` on the make command line rather than `NUM_CONCURRENT` in `.env`) |
 | `MAX_GEN_TOKS` | `--max-gen-toks N` | Most tokens per answer (defaults: math 4096, reasoning and MGSM 2048, truthfulqa 64, Global-MMLU 32). A model that "thinks" before answering needs far more on truthfulqa |
 | `STRICT=1` | `--strict` | Exit status 1 if any benchmark FAILs (handy for CI) |
 | `RESULTS_DIR` | `--results-dir D` | Where reports go (default `../reports/`, or `RESULTS_DIR` in `.env`) |

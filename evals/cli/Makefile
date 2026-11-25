@@ -17,10 +17,13 @@ STAMP  := $(VENV)/.installed
 
 # Optional knobs, passed straight to the CLI:
 #   PYPI_INDEX=https://my.mirror/simple  (package index for `make install`; default https://pypi.org/simple)
-#   LIMIT=10  THRESHOLD=0.7  CONCURRENT=16  MAX_GEN_TOKS=4096  RESULTS_DIR=/some/dir  ENV_FILE=other.env  STRICT=1
+#   LIMIT=10  THRESHOLD=0.7  MAX_GEN_TOKS=4096  RESULTS_DIR=/some/dir  ENV_FILE=other.env  STRICT=1
 #   ARGS="--model foo --base-url https://host/v1"   (anything else the CLI accepts)
+# Parallel LLM inference requests (override: make mmlu CONCURRENT=16)
+CONCURRENT ?= 8
+
 RUN_FLAGS = $(if $(LIMIT),--limit $(LIMIT)) $(if $(THRESHOLD),--threshold $(THRESHOLD)) \
-            $(if $(CONCURRENT),--concurrent $(CONCURRENT)) $(if $(MAX_GEN_TOKS),--max-gen-toks $(MAX_GEN_TOKS)) $(if $(TEMPERATURE),--temperature $(TEMPERATURE)) \
+            --concurrent $(CONCURRENT) $(if $(MAX_GEN_TOKS),--max-gen-toks $(MAX_GEN_TOKS)) $(if $(TEMPERATURE),--temperature $(TEMPERATURE)) \
             $(if $(STRICT),--strict) $(if $(RESULTS_DIR),--results-dir $(RESULTS_DIR)) \
             $(if $(ENV_FILE),--env-file $(ENV_FILE)) $(ARGS)
 
@@ -31,7 +34,7 @@ BENCHMARKS := ifeval math mmlu truthfulqa reasoning multilingual
 help:
 	@sed -n '3,9p' Makefile | sed 's/^# \{0,1\}//'
 	@echo
-	@echo "Options (VAR=value): PYPI_INDEX (install) LIMIT THRESHOLD CONCURRENT MAX_GEN_TOKS RESULTS_DIR ENV_FILE STRICT ARGS"
+	@echo "Options (VAR=value): PYPI_INDEX (install) LIMIT THRESHOLD CONCURRENT(=8) MAX_GEN_TOKS RESULTS_DIR ENV_FILE STRICT ARGS"
 	@echo "Base interpreter for the venv: PYTHON=$(PYTHON)   venv folder: VENV=$(VENV)"
 
 $(PY):
