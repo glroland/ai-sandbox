@@ -1,0 +1,80 @@
+{
+ "mmlu": {
+  "title": "MMLU",
+  "what": "broad knowledge",
+  "score": 0.8160518444666002,
+  "ci": [
+   0.8095573173636397,
+   0.8223734884059484
+  ],
+  "threshold": 0.6,
+  "n": 14042,
+  "model": "gpt-oss-20b",
+  "seconds": 8429.425806147978
+ },
+ "ifeval": {
+  "title": "IFEval",
+  "what": "instruction following",
+  "score": 0.6762589928057554,
+  "ci": [
+   0.6437572132839796,
+   0.7071444368608687
+  ],
+  "threshold": 0.6,
+  "n": 541,
+  "model": "gpt-oss-20b",
+  "seconds": 1477.284117430012
+ },
+ "math": {
+  "title": "MATH Level 5",
+  "what": "competition mathematics",
+  "score": 0.8104229607250756,
+  "ci": [
+   0.788422787080087,
+   0.8306269549975825
+  ],
+  "threshold": 0.1,
+  "n": 1324,
+  "model": "gpt-oss-20b",
+  "seconds": 3020.9001175259764
+ },
+ "truthfulqa": {
+  "title": "TruthfulQA",
+  "what": "resists falsehoods",
+  "score": 0.07466340269277846,
+  "ci": [
+   0.05856248789489876,
+   0.09474553158169699
+  ],
+  "threshold": 0.5,
+  "n": 817,
+  "model": "gpt-oss-20b",
+  "seconds": 214.33628967299592
+ },
+ "reasoning": {
+  "title": "Reasoning",
+  "what": "GSM8K + BBH",
+  "score": 0.8273557351884471,
+  "ci": [
+   0.8126882707180021,
+   0.840778235784275
+  ],
+  "threshold": 0.6,
+  "n": 7830,
+  "model": "gpt-oss-20b",
+  "seconds": 5688.516174269025
+ },
+ "multilingual": {
+  "title": "Multilingual",
+  "what": "MGSM + Global-MMLU Lite",
+  "score": 0.44153787878787876,
+  "ci": [
+   0.43519174967457436,
+   0.44766967282617515
+  ],
+  "threshold": 0.6,
+  "n": 8750,
+  "model": "gpt-oss-20b",
+  "seconds": 2934.482320790994
+ }
+}
